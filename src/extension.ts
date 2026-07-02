@@ -36,6 +36,15 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage('Team Pulse: 로그아웃됐어요.');
     }),
 
+    vscode.commands.registerCommand('teamPulse.relogin', async () => {
+      await context.globalState.update('authToken', undefined);
+      await context.globalState.update('githubLogin', undefined);
+      await context.globalState.update('roomCode', undefined);
+      sidebarProvider.disconnect();
+      vscode.window.showInformationMessage('Team Pulse: 다시 로그인할게요...');
+      sidebarProvider.connect();
+    }),
+
     statusBar
   );
 

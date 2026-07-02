@@ -55,6 +55,10 @@
       {
         "command": "teamPulse.logout",
         "title": "Team Pulse: GitHub 로그아웃"
+      },
+      {
+        "command": "teamPulse.relogin",
+        "title": "Team Pulse: GitHub 다시 로그인"
       }
     ],
     "menus": {
