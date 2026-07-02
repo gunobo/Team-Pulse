@@ -313,8 +313,12 @@ const httpServer = createServer(async (req, res) => {
   }
 
   // ── 어드민 API ────────────────────────────────────
-  if (url.pathname === '/admin/api') {
-    const pw = url.searchParams.get('pw');
+  if (url.pathname === '/admin/api' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    await new Promise(r => req.on('end', r));
+    let pw;
+    try { pw = JSON.parse(body).pw; } catch { pw = ''; }
     if (pw !== ADMIN_PASSWORD) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '비밀번호가 틀렸어요.' }));
@@ -443,7 +447,7 @@ function fmtUp(s) {
   return h + '시간 ' + m + '분';
 }
 async function load() {
-  const r = await fetch('/admin/api?pw=' + encodeURIComponent(pw));
+  const r = await fetch('/admin/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pw }) });
   if (!r.ok) { document.getElementById('err').textContent = '비밀번호가 틀렸어요.'; return; }
   const d = await r.json();
   document.getElementById('login').style.display = 'none';
