@@ -797,12 +797,17 @@ wss.on('connection', (ws, req) => {
       }
       if (!sessions[code]) sessions[code] = new Map();
 
-      const dup = [...sessions[code].values()].find(c => c.member.name === githubLogin);
-      if (dup) return send(ws, { type: 'error', message: `이미 접속 중이에요.` });
+      // 같은 계정 중복 접속 허용 — 이름에 #2, #3 suffix
+      let displayName = githubLogin;
+      const existing = [...sessions[code].values()]
+        .filter(c => c.member.name === githubLogin || c.member.name.startsWith(githubLogin + '#'));
+      if (existing.length > 0) {
+        displayName = `${githubLogin}#${existing.length + 1}`;
+      }
 
       clearTimeout(authTimer);
       roomCode = code;
-      joinRoom(ws, clientId, code, githubLogin);
+      joinRoom(ws, clientId, code, displayName);
       send(ws, { type: 'welcome', roomName: rooms[code].name });
       console.log(`[입장] ${githubLogin} → "${rooms[code].name}" (${code})`);
       return;
