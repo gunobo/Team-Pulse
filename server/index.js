@@ -6,6 +6,10 @@ const PORT      = process.env.PORT || 4001;
 const DB_PATH   = './rooms.json';
 const wss       = new WebSocketServer({ port: PORT });
 
+// IP당 마지막 시도 시각 + 실패 횟수
+const rateLimitMap = new Map(); // ip → { last: timestamp, fails: number }
+const MAX_FAILS = 10000;
+
 // ── 영구 저장소 ───────────────────────────────────
 // rooms.json: { [code]: { name, createdAt, createdBy } }
 function loadRooms() {
@@ -28,13 +32,33 @@ let nextId = 1;
 // ── 코드 생성 ─────────────────────────────────────
 function generateCode() {
   let code;
-  do { code = randomBytes(3).toString('hex').toUpperCase(); }
+  do { code = randomBytes(4).toString('hex').toUpperCase(); }
   while (rooms[code]);
   return code;
 }
 
 // ── WebSocket ─────────────────────────────────────
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0].trim()
+          || req.socket.remoteAddress;
+  const now   = Date.now();
+  const entry = rateLimitMap.get(ip) ?? { last: 0, fails: 0 };
+
+  // 횟수 초과 → 영구 차단
+  if (entry.fails >= MAX_FAILS) {
+    console.warn(`[차단] ${ip} — 시도 횟수 초과 (${entry.fails}회)`);
+    ws.close(1008, 'Banned');
+    return;
+  }
+
+  // 3초 rate limit
+  if (now - entry.last < 3000) {
+    ws.close(1008, 'Rate limited');
+    return;
+  }
+
+  rateLimitMap.set(ip, { ...entry, last: now });
+
   const clientId = String(nextId++);
   let roomCode   = null;
 
@@ -74,6 +98,9 @@ wss.on('connection', (ws) => {
       const code = msg.code?.trim().toUpperCase();
 
       if (!rooms[code]) {
+        const e = rateLimitMap.get(ip) ?? { last: 0, fails: 0 };
+        rateLimitMap.set(ip, { ...e, fails: e.fails + 1 });
+        console.warn(`[실패] ${ip} 잘못된 코드: ${code} (${e.fails + 1}회)`);
         return send(ws, { type: 'error', message: '존재하지 않는 초대 코드예요.' });
       }
       if (!msg.name?.trim()) {
