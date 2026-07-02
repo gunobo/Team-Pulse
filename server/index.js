@@ -476,6 +476,40 @@ const httpServer = createServer(async (req, res) => {
     return;
   }
 
+  // ── 어드민 방 삭제 ────────────────────────────────
+  if (url.pathname === '/admin/delete-room' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    await new Promise(r => req.on('end', r));
+    let pw, code;
+    try { ({ pw, code } = JSON.parse(body)); } catch { pw = ''; }
+    if (pw !== ADMIN_PASSWORD) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '권한 없음' }));
+      return;
+    }
+    if (!rooms[code]) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '방을 찾을 수 없어요.' }));
+      return;
+    }
+    // 방에 있는 모든 연결 강제 종료
+    if (sessions[code]) {
+      for (const { ws: clientWs } of sessions[code].values()) {
+        send(clientWs, { type: 'error', message: '관리자에 의해 방이 삭제됐어요.', code: 'ROOM_DELETED' });
+        clientWs.close();
+      }
+      delete sessions[code];
+    }
+    const roomName = rooms[code].name;
+    delete rooms[code];
+    saveRooms(rooms);
+    console.log(`[어드민] 방 삭제: "${roomName}" (${code})`);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, roomName }));
+    return;
+  }
+
   // ── 어드민 토큰 취소 ──────────────────────────────
   if (url.pathname === '/admin/revoke' && req.method === 'POST') {
     let body = '';
@@ -545,7 +579,9 @@ const httpServer = createServer(async (req, res) => {
   .room-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
   .room-code{font-size:12px;font-family:monospace;background:#7c3aed22;color:#a78bfa;padding:3px 8px;border-radius:6px}
   .room-name{font-size:15px;font-weight:700}
-  .room-meta{font-size:12px;color:#ffffff40;margin-left:auto}
+  .room-meta{font-size:12px;color:#ffffff40;margin-left:auto;display:flex;align-items:center;gap:10px}
+  .delete-btn{padding:4px 10px;background:#ef444415;border:1px solid #ef444440;border-radius:6px;color:#f87171;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+  .delete-btn:hover{background:#ef444430}
   .room-members{display:flex;flex-wrap:wrap;gap:8px}
   .room-member{display:flex;align-items:center;gap:6px;padding:5px 10px;background:#1a1a2e;border-radius:8px;font-size:12px}
   .dot{width:7px;height:7px;border-radius:50%}
@@ -603,6 +639,13 @@ function fmtUp(s) {
   const h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
   return h + '시간 ' + m + '분';
 }
+async function deleteRoom(code, name) {
+  if (!confirm(\`"\${name}" (\${code}) 방을 삭제할까요?\\n접속 중인 멤버도 즉시 연결이 끊겨요.\`)) return;
+  const r = await fetch('/admin/delete-room', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pw, code }) });
+  const d = await r.json();
+  if (d.ok) { alert(\`"\${d.roomName}" 방이 삭제됐어요.\`); load(); }
+  else alert('실패: ' + (d.error || '알 수 없는 오류'));
+}
 async function revoke(login) {
   if (!confirm(\`@\${login} 을 강제 로그아웃할까요?\\n현재 연결도 즉시 끊겨요.\`)) return;
   const r = await fetch('/admin/revoke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pw, login }) });
@@ -630,7 +673,7 @@ async function load() {
         <span class="room-code">\${room.code}</span>
         <span class="room-name">\${room.name}</span>
         \${room.repo ? \`<span style="font-size:12px;color:#7c3aed">🔒 \${room.repo}</span>\` : ''}
-        <span class="room-meta">by \${room.createdBy} · \${room.online}명 온라인 · 만료 \${fmt(room.expiresAt)}</span>
+        <span class="room-meta">by \${room.createdBy} · \${room.online}명 온라인 · 만료 \${fmt(room.expiresAt)}<button class="delete-btn" onclick="deleteRoom('\${room.code}','\${room.name}')">방 삭제</button></span>
       </div>
       <div class="room-members">
         \${room.members.length ? room.members.map(m => \`
