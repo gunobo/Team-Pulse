@@ -24,8 +24,16 @@ export function activate(context: vscode.ExtensionContext) {
     }),
 
     vscode.commands.registerCommand('teamPulse.resetCode', async () => {
-      await context.globalState.update('inviteCode', undefined);
-      vscode.window.showInformationMessage('Team Pulse: 초대 코드가 초기화됐어요. 다시 Connect 하세요.');
+      await context.globalState.update('roomCode', undefined);
+      vscode.window.showInformationMessage('Team Pulse: 방 코드가 초기화됐어요. 다시 Connect 하세요.');
+    }),
+
+    vscode.commands.registerCommand('teamPulse.logout', async () => {
+      await context.globalState.update('authToken', undefined);
+      await context.globalState.update('githubLogin', undefined);
+      await context.globalState.update('roomCode', undefined);
+      sidebarProvider.disconnect();
+      vscode.window.showInformationMessage('Team Pulse: 로그아웃됐어요.');
     }),
 
     statusBar

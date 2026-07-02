@@ -35,10 +35,45 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
     });
   }
 
+  private async getAuthToken(): Promise<{ token: string; login: string } | undefined> {
+    const saved = this.context.globalState.get<string>('authToken');
+    const login = this.context.globalState.get<string>('githubLogin');
+    if (saved && login) return { token: saved, login };
+
+    const serverBase = 'https://ws.imjemin.co.kr';
+    const state      = require('crypto').randomBytes(8).toString('hex');
+    const oauthUrl   = `https://github.com/login/oauth/authorize?client_id=Ov23li54euhr9T1jQyBX&scope=read:org&state=${state}`;
+
+    // 브라우저 열기
+    await vscode.env.openExternal(vscode.Uri.parse(oauthUrl));
+    vscode.window.showInformationMessage('GitHub 로그인 후 VS Code로 돌아오세요.');
+
+    // 최대 2분간 폴링
+    for (let i = 0; i < 24; i++) {
+      await new Promise(r => setTimeout(r, 5000));
+      try {
+        const res  = await fetch(`${serverBase}/auth/status?state=${state}`);
+        const data = await res.json() as any;
+        if (data.ready) {
+          await this.context.globalState.update('authToken', data.token);
+          await this.context.globalState.update('githubLogin', data.login);
+          return { token: data.token, login: data.login };
+        }
+      } catch {}
+    }
+
+    vscode.window.showErrorMessage('Team Pulse: 인증 시간 초과. 다시 시도해주세요.');
+    return undefined;
+  }
+
   async connect() {
     const config    = vscode.workspace.getConfiguration('teamPulse');
     const serverUrl = config.get<string>('serverUrl') ?? 'wss://ws.imjemin.co.kr';
-    const username  = config.get<string>('username') || 'IMJEMIN';
+
+    // GitHub 인증
+    const auth = await this.getAuthToken();
+    if (!auth) return;
+    const username = auth.login;
 
     // 저장된 방 코드 확인
     const savedCode = this.context.globalState.get<string>('roomCode');
@@ -88,12 +123,13 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
       joinCode = savedCode;
     }
 
-    this.setupWebSocket(serverUrl, username, action.value === 'create', joinCode, roomName);
+    this.setupWebSocket(serverUrl, username, auth.token, action.value === 'create', joinCode, roomName);
   }
 
   private setupWebSocket(
     serverUrl: string,
     username: string,
+    token: string,
     isCreate: boolean,
     joinCode?: string,
     roomName?: string
@@ -104,9 +140,9 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
     this.ws.on('open', () => {
       this.postToWebview({ type: 'connecting' });
       if (isCreate) {
-        this.sendToServer({ type: 'createRoom', name: username, roomName: roomName || `${username}의 방` });
+        this.sendToServer({ type: 'createRoom', token, roomName: roomName || `${username}의 방` });
       } else {
-        this.sendToServer({ type: 'joinRoom', name: username, code: joinCode });
+        this.sendToServer({ type: 'joinRoom', token, code: joinCode });
       }
     });
 
@@ -119,12 +155,13 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
     this.ws.on('close', () => {
       this.postToWebview({ type: 'disconnected' });
       this.reconnectTimer = setTimeout(() => {
-        const config = vscode.workspace.getConfiguration('teamPulse');
+        const config    = vscode.workspace.getConfiguration('teamPulse');
         const serverUrl = config.get<string>('serverUrl') ?? 'wss://ws.imjemin.co.kr';
-        const username  = config.get<string>('username') || 'IMJEMIN';
         const savedCode = this.context.globalState.get<string>('roomCode');
-        if (savedCode) {
-          this.setupWebSocket(serverUrl, username, false, savedCode);
+        const savedToken= this.context.globalState.get<string>('authToken');
+        const savedLogin= this.context.globalState.get<string>('githubLogin');
+        if (savedCode && savedToken && savedLogin) {
+          this.setupWebSocket(serverUrl, savedLogin, savedToken, false, savedCode);
         }
       }, 5000);
     });

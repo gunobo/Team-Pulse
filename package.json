@@ -50,7 +50,11 @@
       },
       {
         "command": "teamPulse.resetCode",
-        "title": "Team Pulse: 초대 코드 재입력"
+        "title": "Team Pulse: 방 코드 초기화"
+      },
+      {
+        "command": "teamPulse.logout",
+        "title": "Team Pulse: GitHub 로그아웃"
       }
     ],
     "menus": {
