@@ -820,17 +820,17 @@ wss.on('connection', (ws, req) => {
     switch (msg.type) {
       case 'fileOpen': {
         const e = session.get(clientId);
-        if (e) { e.member.file = msg.file ?? null; broadcastRoom(roomCode, { type: 'memberUpdated', member: e.member }, clientId); }
+        if (e) { e.member.file = msg.file ?? null; broadcastRoom(roomCode, { type: 'memberUpdated', member: e.member }); }
         break;
       }
       case 'statusChange': {
         const e = session.get(clientId);
-        if (e) { e.member.status = msg.status; broadcastRoom(roomCode, { type: 'memberUpdated', member: e.member }, clientId); }
+        if (e) { e.member.status = msg.status; broadcastRoom(roomCode, { type: 'memberUpdated', member: e.member }); }
         break;
       }
       case 'gitStatus': {
         const e = session.get(clientId);
-        if (e) { e.member.modifiedFiles = msg.files ?? []; broadcastRoom(roomCode, { type: 'memberUpdated', member: e.member }, clientId); }
+        if (e) { e.member.modifiedFiles = msg.files ?? []; broadcastRoom(roomCode, { type: 'memberUpdated', member: e.member }); }
         break;
       }
       case 'ping': break; // keepalive, no-op
