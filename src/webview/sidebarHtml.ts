@@ -185,6 +185,7 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
     .member-info { flex: 1; min-width: 0; }
     .member-name { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .member-file { font-size: 10px; color: var(--vscode-descriptionForeground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+    .member-git { font-size: 10px; color: #f59e0b; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     .disconnect-btn {
       width: 100%; padding: 6px; background: none;
@@ -211,7 +212,7 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
       <div class="welcome-title">Team Pulse</div>
       <div class="welcome-sub">GitHub로 로그인하고<br>팀원과 연결해요</div>
     </div>
-    <button class="primary-btn" onclick="doLogin()">GitHub로 로그인</button>
+    <button class="primary-btn" id="btn-login">GitHub로 로그인</button>
   </div>
 
   <!-- 로그인 중 -->
@@ -230,26 +231,26 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
       <div class="welcome-title" id="welcome-name"></div>
       <div class="welcome-sub">팀과 연결할 방을 선택해요</div>
     </div>
-    <button class="action-btn" onclick="showScreen('screen-create')">
+    <button class="action-btn" id="btn-go-create">
       <span class="btn-icon">＋</span>
       <span class="btn-text">
         <span class="btn-label">새 방 만들기</span>
         <span class="btn-desc">초대 코드를 팀원에게 공유해요</span>
       </span>
     </button>
-    <button class="action-btn" onclick="showScreen('screen-join')">
+    <button class="action-btn" id="btn-go-join">
       <span class="btn-icon">🔑</span>
       <span class="btn-text">
         <span class="btn-label">초대 코드로 참가</span>
         <span class="btn-desc">팀원에게 받은 코드를 입력해요</span>
       </span>
     </button>
-    <button class="disconnect-btn" style="margin-top:auto" onclick="doLogout()">로그아웃</button>
+    <button class="disconnect-btn" style="margin-top:auto" id="btn-logout">로그아웃</button>
   </div>
 
   <!-- 방 만들기 -->
   <div class="screen" id="screen-create">
-    <button class="back-btn" onclick="showScreen('screen-home')">← 뒤로</button>
+    <button class="back-btn" id="btn-back-create">← 뒤로</button>
     <div class="screen-title">새 방 만들기</div>
     <div class="screen-sub">방 정보를 입력하세요</div>
     <div class="form-group">
@@ -262,22 +263,21 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
       <span class="form-hint">입력하면 해당 collaborator만 입장 가능해요</span>
     </div>
     <div id="create-error" class="error-msg"></div>
-    <button class="primary-btn" onclick="doCreate()">방 만들기</button>
+    <button class="primary-btn" id="btn-create">방 만들기</button>
   </div>
 
   <!-- 참가 -->
   <div class="screen" id="screen-join">
-    <button class="back-btn" onclick="showScreen('screen-home')">← 뒤로</button>
+    <button class="back-btn" id="btn-back-join">← 뒤로</button>
     <div class="screen-title">초대 코드로 참가</div>
     <div class="screen-sub">팀원에게 받은 코드를 입력하세요</div>
     <div class="form-group">
       <label class="form-label">초대 코드</label>
       <input class="form-input" id="input-code" placeholder="A1B2C3D4" maxlength="8"
-        style="text-transform:uppercase;letter-spacing:2px;font-family:monospace"
-        oninput="this.value=this.value.toUpperCase()">
+        style="text-transform:uppercase;letter-spacing:2px;font-family:monospace">
     </div>
     <div id="join-error" class="error-msg"></div>
-    <button class="primary-btn" onclick="doJoin()">참가하기</button>
+    <button class="primary-btn" id="btn-join">참가하기</button>
   </div>
 
   <!-- 연결됨 -->
@@ -287,11 +287,11 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
         <div class="room-name" id="roomNameDisplay"></div>
         <div class="room-code" id="roomCodeDisplay"></div>
       </div>
-      <button class="copy-btn" onclick="copyCode()" title="코드 복사">📋</button>
+      <button class="copy-btn" id="btn-copy" title="코드 복사">📋</button>
     </div>
     <div class="section-label" id="onlineLabel">Online — 0</div>
     <div id="memberList"></div>
-    <button class="disconnect-btn" onclick="doDisconnect()">연결 끊기</button>
+    <button class="disconnect-btn" id="btn-disconnect">연결 끊기</button>
   </div>
 
   <script nonce="${nonce}">
@@ -414,14 +414,33 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
     function memberCard(m) {
       const initial = (m.name || '?')[0].toUpperCase();
       const fileLabel = m.file ? m.file.split('/').pop() : '—';
+      const gitFiles = m.modifiedFiles && m.modifiedFiles.length > 0
+        ? \`✏ \${m.modifiedFiles.length}개 수정 중\`
+        : '';
       return \`<div class="member-card">
         <div class="avatar">\${initial}<div class="avatar-badge badge-\${m.status}"></div></div>
         <div class="member-info">
           <div class="member-name">\${m.name}</div>
           <div class="member-file">\${fileLabel}</div>
+          \${gitFiles ? \`<div class="member-git">\${gitFiles}</div>\` : ''}
         </div>
       </div>\`;
     }
+
+    // 버튼 이벤트 바인딩
+    document.getElementById('btn-login').addEventListener('click', doLogin);
+    document.getElementById('btn-logout').addEventListener('click', doLogout);
+    document.getElementById('btn-go-create').addEventListener('click', () => showScreen('screen-create'));
+    document.getElementById('btn-go-join').addEventListener('click', () => showScreen('screen-join'));
+    document.getElementById('btn-back-create').addEventListener('click', () => showScreen('screen-home'));
+    document.getElementById('btn-back-join').addEventListener('click', () => showScreen('screen-home'));
+    document.getElementById('btn-create').addEventListener('click', doCreate);
+    document.getElementById('btn-join').addEventListener('click', doJoin);
+    document.getElementById('btn-disconnect').addEventListener('click', doDisconnect);
+    document.getElementById('btn-copy').addEventListener('click', copyCode);
+    document.getElementById('input-code').addEventListener('input', function() {
+      this.value = this.value.toUpperCase();
+    });
 
     // 웹뷰 로드 완료 → 확장에 ready 전송
     window.addEventListener('load', () => {

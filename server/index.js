@@ -823,6 +823,11 @@ wss.on('connection', (ws, req) => {
         if (e) { e.member.status = msg.status; broadcastRoom(roomCode, { type: 'memberUpdated', member: e.member }, clientId); }
         break;
       }
+      case 'gitStatus': {
+        const e = session.get(clientId);
+        if (e) { e.member.modifiedFiles = msg.files ?? []; broadcastRoom(roomCode, { type: 'memberUpdated', member: e.member }, clientId); }
+        break;
+      }
       case 'notify': {
         const target = [...session.values()].find(c => c.member.name === msg.to);
         if (target) send(target.ws, { type: 'notification', from: githubLogin, message: msg.message });

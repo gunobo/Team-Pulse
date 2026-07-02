@@ -316,6 +316,17 @@ class TeamPulseSidebarProvider {
     broadcastFileOpen(filePath) {
         this.sendToServer({ type: 'fileOpen', file: filePath });
     }
+    broadcastGitStatus() {
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!workspaceRoot)
+            return;
+        cp.exec('git diff --name-only HEAD', { cwd: workspaceRoot }, (err, stdout) => {
+            if (err)
+                return;
+            const files = stdout.trim().split('\n').filter(Boolean);
+            this.sendToServer({ type: 'gitStatus', files });
+        });
+    }
     broadcastAway(away) {
         this.sendToServer({ type: 'statusChange', status: away ? 'away' : 'online' });
     }

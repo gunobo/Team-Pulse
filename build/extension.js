@@ -41,7 +41,9 @@ const statusBar_1 = require("./statusBar");
 function activate(context) {
     const sidebarProvider = new sidebarProvider_1.TeamPulseSidebarProvider(context);
     const statusBar = new statusBar_1.StatusBarManager();
-    context.subscriptions.push(vscode.window.registerWebviewViewProvider('teamPulse.sidebar', sidebarProvider), vscode.commands.registerCommand('teamPulse.refresh', () => {
+    context.subscriptions.push(vscode.window.registerWebviewViewProvider('teamPulse.sidebar', sidebarProvider, {
+        webviewOptions: { retainContextWhenHidden: true },
+    }), vscode.commands.registerCommand('teamPulse.refresh', () => {
         sidebarProvider.refresh();
     }), vscode.commands.registerCommand('teamPulse.connect', () => {
         sidebarProvider.connect();
@@ -76,7 +78,16 @@ function activate(context) {
                 : fullPath.split(/[\\/]/).pop() ?? fullPath;
             sidebarProvider.broadcastFileOpen(relativePath);
         }
+    }), 
+    // 파일 저장 시 git 수정 파일 목록 broadcast
+    vscode.workspace.onDidSaveTextDocument(() => {
+        sidebarProvider.broadcastGitStatus();
     }));
+    // 60초마다 git 수정 파일 목록 갱신
+    const gitStatusInterval = setInterval(() => {
+        sidebarProvider.broadcastGitStatus();
+    }, 60000);
+    context.subscriptions.push({ dispose: () => clearInterval(gitStatusInterval) });
     const config = vscode.workspace.getConfiguration('teamPulse');
     if (config.get('autoConnect')) {
         vscode.commands.executeCommand('teamPulse.connect');
