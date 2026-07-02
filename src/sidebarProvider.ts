@@ -209,6 +209,17 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
       this.pingTimer = setInterval(() => {
         this.sendToServer({ type: 'ping' });
       }, 30000);
+      // 접속 직후 현재 파일 + git 상태 브로드캐스트
+      const editor = vscode.window.activeTextEditor;
+      if (editor) {
+        const fullPath = editor.document.uri.fsPath;
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const relativePath = workspaceRoot && fullPath.startsWith(workspaceRoot)
+          ? fullPath.slice(workspaceRoot.length).replace(/^[\\/]/, '')
+          : fullPath.split(/[\\/]/).pop() ?? fullPath;
+        setTimeout(() => this.broadcastFileOpen(relativePath), 1000);
+      }
+      setTimeout(() => this.broadcastGitStatus(), 1500);
     });
 
     this.ws.on('message', (raw: ws_module.RawData) => {
@@ -243,10 +254,12 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
       case 'roomCreated':
         this.setRoomCode(msg.code);
         this.postToWebview({ type: 'roomCreated', roomName: msg.roomName, code: msg.code });
+        this.postMembers();
         break;
 
       case 'welcome':
         this.postToWebview({ type: 'welcome', roomName: msg.roomName, code: this.getRoomCode() });
+        this.postMembers();
         break;
 
       case 'members':
