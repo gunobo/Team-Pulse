@@ -112,7 +112,8 @@ const httpServer = createServer(async (req, res) => {
 
       // 토큰 발급 (accessToken도 보관 — 레포 목록 조회에 사용)
       const token = randomBytes(16).toString('hex');
-      validTokens.set(token, { login: user.login, accessToken: access_token });
+      const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+      validTokens.set(token, { login: user.login, accessToken: access_token, expiresAt });
       authPending.set(state, { token, login: user.login });
 
       console.log(`[인증] ${user.login} ✓`);
@@ -210,10 +211,19 @@ wss.on('connection', (ws, req) => {
     // ── 토큰 검증 (모든 메시지 앞에) ──────────────
     if (!roomCode && msg.type !== 'createRoom' && msg.type !== 'joinRoom') return;
 
-    if ((msg.type === 'createRoom' || msg.type === 'joinRoom') && !validTokens.has(msg.token)) {
-      send(ws, { type: 'error', message: 'GitHub 인증이 필요해요.' });
-      ws.close();
-      return;
+    if (msg.type === 'createRoom' || msg.type === 'joinRoom') {
+      const tokenData = validTokens.get(msg.token);
+      if (!tokenData) {
+        send(ws, { type: 'error', message: 'GitHub 인증이 필요해요.', code: 'AUTH_REQUIRED' });
+        ws.close();
+        return;
+      }
+      if (Date.now() > tokenData.expiresAt) {
+        validTokens.delete(msg.token);
+        send(ws, { type: 'error', message: '로그인이 만료됐어요. 다시 로그인해주세요.', code: 'TOKEN_EXPIRED' });
+        ws.close();
+        return;
+      }
     }
 
     const githubLogin = validTokens.get(msg.token)?.login;

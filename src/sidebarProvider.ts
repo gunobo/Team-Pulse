@@ -258,7 +258,13 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
 
       case 'error':
         vscode.window.showErrorMessage(`Team Pulse: ${msg.message}`);
-        if (msg.message.includes('초대 코드') || msg.message.includes('코드')) {
+        if (msg.code === 'TOKEN_EXPIRED') {
+          this.context.globalState.update('authToken', undefined);
+          this.context.globalState.update('githubLogin', undefined);
+          vscode.window.showInformationMessage('Team Pulse: 다시 로그인할게요...', '로그인').then(a => {
+            if (a === '로그인') this.connect();
+          });
+        } else if (msg.message.includes('초대 코드') || msg.message.includes('코드')) {
           this.context.globalState.update('roomCode', undefined);
         }
         break;
