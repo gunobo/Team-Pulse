@@ -1,0 +1,14 @@
+{
+  "name": "team-pulse-server",
+  "version": "0.1.0",
+  "description": "Team Pulse WebSocket server",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

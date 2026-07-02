@@ -1,0 +1,104 @@
+{
+  "name": "team-pulse",
+  "displayName": "Team Pulse",
+  "description": "Real-time team collaboration activity monitor for VS Code",
+  "version": "0.1.0",
+  "publisher": "team-pulse",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "icon": "media/team-pulse-128.png",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "team-pulse",
+          "title": "Team Pulse",
+          "icon": "media/team-pulse-128.svg"
+        }
+      ]
+    },
+    "views": {
+      "team-pulse": [
+        {
+          "type": "webview",
+          "id": "teamPulse.sidebar",
+          "name": "Team Activity"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "teamPulse.refresh",
+        "title": "Team Pulse: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "teamPulse.connect",
+        "title": "Team Pulse: Connect"
+      },
+      {
+        "command": "teamPulse.disconnect",
+        "title": "Team Pulse: Disconnect"
+      },
+      {
+        "command": "teamPulse.resetCode",
+        "title": "Team Pulse: 초대 코드 재입력"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "teamPulse.refresh",
+          "when": "view == teamPulse.sidebar",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Team Pulse",
+      "properties": {
+        "teamPulse.serverUrl": {
+          "type": "string",
+          "default": "wss://ws.imjemin.co.kr",
+          "description": "WebSocket server URL for team activity sync"
+        },
+        "teamPulse.username": {
+          "type": "string",
+          "default": "IMJEMIN",
+          "description": "Display name shown to teammates"
+        },
+        "teamPulse.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically connect when VS Code starts"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@types/ws": "^8.18.1",
+    "ws": "^8.21.0"
+  }
+}

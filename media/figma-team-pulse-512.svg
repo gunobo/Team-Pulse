@@ -1,0 +1,162 @@
+<svg
+  width="512"
+  height="512"
+  viewBox="0 0 512 512"
+  xmlns="http://www.w3.org/2000/svg"
+  xmlns:xlink="http://www.w3.org/1999/xlink">
+
+  <defs>
+    <!-- 웨이브 그라디언트 (피그마 임포트 후 Gradient Fill로 인식됨) -->
+    <linearGradient id="WaveGradient" x1="116" y1="256" x2="396" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#6366f1"/>
+      <stop offset="50%"  stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <!-- 노드 글로우용 (피그마에서 Inner/Outer Shadow로 대체) -->
+    <radialGradient id="GlowIndigo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#6366f1" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="GlowViolet" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#8b5cf6" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- ══════════════════════════════
+       Layer 1 · BG Circle
+       피그마: Ellipse, stroke dashed
+       ══════════════════════════════ -->
+  <g id="BG_Circle">
+    <circle
+      cx="256" cy="256" r="140"
+      fill="none"
+      stroke="#E5E7EB"
+      stroke-width="1.5"
+      stroke-opacity="0.45"
+      stroke-dasharray="6 5"
+    />
+  </g>
+
+  <!-- ══════════════════════════════
+       Layer 2 · Halos (글로우 후광)
+       피그마에서 직접 수정하거나
+       각 노드에 Outer Glow Effect 추가
+       ══════════════════════════════ -->
+  <g id="Halos">
+    <g id="Halo_Top">
+      <circle cx="256" cy="116" r="38" fill="url(#GlowIndigo)"/>
+    </g>
+    <g id="Halo_Right">
+      <circle cx="396" cy="256" r="38" fill="url(#GlowViolet)"/>
+    </g>
+    <g id="Halo_Bottom">
+      <circle cx="256" cy="396" r="38" fill="url(#GlowIndigo)"/>
+    </g>
+    <g id="Halo_Left">
+      <circle cx="116" cy="256" r="38" fill="url(#GlowViolet)"/>
+    </g>
+  </g>
+
+  <!-- ══════════════════════════════
+       Layer 3 · Waveform Path
+       피그마: Vector, Gradient Stroke
+       stroke-linecap=round 유지
+       ══════════════════════════════ -->
+  <g id="Waveform">
+    <!-- 글로우 레이어 (피그마에서 Blur Effect로 대체 가능) -->
+    <polyline
+      id="Waveform_Glow"
+      points="116,256 152,256 172,196 192,316 212,226 232,286 252,256 272,256 292,206 312,306 332,236 352,276 372,256 396,256"
+      fill="none"
+      stroke="#8b5cf6"
+      stroke-width="10"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-opacity="0.25"
+    />
+    <!-- 메인 웨이브 -->
+    <polyline
+      id="Waveform_Main"
+      points="116,256 152,256 172,196 192,316 212,226 232,286 252,256 272,256 292,206 312,306 332,236 352,276 372,256 396,256"
+      fill="none"
+      stroke="url(#WaveGradient)"
+      stroke-width="3.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </g>
+
+  <!-- ══════════════════════════════
+       Layer 4 · Team Nodes
+       피그마: 각각 Ellipse 컴포넌트화
+       Indigo=#6366f1, Violet=#8b5cf6
+       ══════════════════════════════ -->
+  <g id="Team_Nodes">
+
+    <!-- 12시 방향 · Indigo -->
+    <g id="Node_Top">
+      <circle cx="256" cy="116" r="20"
+        fill="#6366f1"
+        fill-opacity="0.88"/>
+      <circle cx="256" cy="116" r="20"
+        fill="none"
+        stroke="#6366f1"
+        stroke-width="2"
+        stroke-opacity="0.30"/>
+    </g>
+
+    <!-- 3시 방향 · Violet -->
+    <g id="Node_Right">
+      <circle cx="396" cy="256" r="20"
+        fill="#8b5cf6"
+        fill-opacity="0.88"/>
+      <circle cx="396" cy="256" r="20"
+        fill="none"
+        stroke="#8b5cf6"
+        stroke-width="2"
+        stroke-opacity="0.30"/>
+    </g>
+
+    <!-- 6시 방향 · Violet -->
+    <g id="Node_Bottom">
+      <circle cx="256" cy="396" r="20"
+        fill="#8b5cf6"
+        fill-opacity="0.88"/>
+      <circle cx="256" cy="396" r="20"
+        fill="none"
+        stroke="#8b5cf6"
+        stroke-width="2"
+        stroke-opacity="0.30"/>
+    </g>
+
+    <!-- 9시 방향 · Indigo -->
+    <g id="Node_Left">
+      <circle cx="116" cy="256" r="20"
+        fill="#6366f1"
+        fill-opacity="0.88"/>
+      <circle cx="116" cy="256" r="20"
+        fill="none"
+        stroke="#6366f1"
+        stroke-width="2"
+        stroke-opacity="0.30"/>
+    </g>
+
+  </g>
+
+  <!-- ══════════════════════════════
+       Layer 5 · Central Pulse
+       피그마: Ellipse, Indigo fill
+       ══════════════════════════════ -->
+  <g id="Central_Pulse">
+    <!-- 글로우 링 -->
+    <circle cx="264" cy="256" r="22"
+      fill="#6366f1"
+      fill-opacity="0.18"/>
+    <!-- 메인 포인트 -->
+    <circle cx="264" cy="256" r="12"
+      fill="#6366f1"
+      fill-opacity="0.92"/>
+  </g>
+
+</svg>

@@ -1,0 +1,78 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#6366f1"/>
+      <stop offset="50%"  stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <radialGradient id="glowIndigo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#6366f1" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowViolet" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#8b5cf6" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur4">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+    <filter id="blur6">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+  </defs>
+
+  <!-- Background circle (dashed connector) -->
+  <circle cx="256" cy="256" r="140"
+    fill="none"
+    stroke="#e5e7eb"
+    stroke-width="1.5"
+    stroke-opacity="0.45"
+    stroke-dasharray="6 5"/>
+
+  <!-- Node halos -->
+  <circle cx="256" cy="116" r="38" fill="url(#glowIndigo)" filter="url(#blur4)"/>
+  <circle cx="396" cy="256" r="38" fill="url(#glowViolet)" filter="url(#blur4)"/>
+  <circle cx="256" cy="396" r="38" fill="url(#glowIndigo)" filter="url(#blur4)"/>
+  <circle cx="116" cy="256" r="38" fill="url(#glowViolet)" filter="url(#blur4)"/>
+
+  <!-- Team member nodes -->
+  <!-- Top (12 o'clock) — Indigo -->
+  <circle cx="256" cy="116" r="20" fill="#6366f1" fill-opacity="0.88"/>
+  <circle cx="256" cy="116" r="20" fill="none" stroke="#6366f1" stroke-width="2" stroke-opacity="0.30"/>
+
+  <!-- Right (3 o'clock) — Violet -->
+  <circle cx="396" cy="256" r="20" fill="#8b5cf6" fill-opacity="0.88"/>
+  <circle cx="396" cy="256" r="20" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-opacity="0.30"/>
+
+  <!-- Bottom (6 o'clock) — Violet -->
+  <circle cx="256" cy="396" r="20" fill="#8b5cf6" fill-opacity="0.88"/>
+  <circle cx="256" cy="396" r="20" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-opacity="0.30"/>
+
+  <!-- Left (9 o'clock) — Indigo -->
+  <circle cx="116" cy="256" r="20" fill="#6366f1" fill-opacity="0.88"/>
+  <circle cx="116" cy="256" r="20" fill="none" stroke="#6366f1" stroke-width="2" stroke-opacity="0.30"/>
+
+  <!-- Waveform glow (blurred duplicate for glow effect) -->
+  <polyline
+    points="116,256 152,256 172,196 192,316 212,226 232,286 252,256 272,256 292,206 312,306 332,236 352,276 372,256 396,256"
+    fill="none"
+    stroke="#8b5cf6"
+    stroke-width="9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-opacity="0.35"
+    filter="url(#blur6)"/>
+
+  <!-- Waveform main path -->
+  <polyline
+    points="116,256 152,256 172,196 192,316 212,226 232,286 252,256 272,256 292,206 312,306 332,236 352,276 372,256 396,256"
+    fill="none"
+    stroke="url(#waveGrad)"
+    stroke-width="3.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+
+  <!-- Central pulse point -->
+  <circle cx="264" cy="256" r="12" fill="#6366f1" fill-opacity="0.90"/>
+  <circle cx="264" cy="256" r="20" fill="url(#glowIndigo)" filter="url(#blur4)"/>
+</svg>
