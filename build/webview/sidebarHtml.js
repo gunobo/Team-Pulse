@@ -211,6 +211,13 @@ function getSidebarHtml(webview, extensionUri) {
     }
     .disconnect-btn:hover { background: var(--vscode-list-hoverBackground); }
 
+    .reconnect-bar {
+      display: none; padding: 6px 12px;
+      background: #f59e0b18; border-bottom: 1px solid #f59e0b30;
+      font-size: 10px; color: #f59e0b; text-align: center;
+    }
+    .reconnect-bar.show { display: block; }
+
     .error-msg { font-size: 11px; color: #f87171; text-align: center; padding: 4px 0; }
   </style>
 </head>
@@ -297,6 +304,7 @@ function getSidebarHtml(webview, extensionUri) {
 
   <!-- 연결됨 -->
   <div class="screen" id="screen-connected">
+    <div class="reconnect-bar" id="reconnect-bar">⟳ 재연결 중...</div>
     <div class="room-badge">
       <div class="room-info">
         <div class="room-name" id="roomNameDisplay"></div>
@@ -348,6 +356,7 @@ function getSidebarHtml(webview, extensionUri) {
     }
 
     function doDisconnect() {
+      currentRoomCode = '';
       vscode.postMessage({ type: 'disconnect' });
       showScreen('screen-home');
       document.getElementById('statusDot').classList.remove('connected');
@@ -381,11 +390,18 @@ function getSidebarHtml(webview, extensionUri) {
           break;
         case 'connected':
           document.getElementById('statusDot').classList.add('connected');
+          document.getElementById('reconnect-bar')?.classList.remove('show');
           break;
         case 'disconnected':
           document.getElementById('statusDot').classList.remove('connected');
-          if (isLoggedIn) showScreen('screen-home');
-          else showScreen('screen-login');
+          // 연결된 방이 있으면 홈으로 가지 말고 재연결 바만 표시
+          if (currentRoomCode) {
+            document.getElementById('reconnect-bar')?.classList.add('show');
+          } else if (isLoggedIn) {
+            showScreen('screen-home');
+          } else {
+            showScreen('screen-login');
+          }
           break;
         case 'roomCreated':
         case 'welcome':
@@ -393,6 +409,7 @@ function getSidebarHtml(webview, extensionUri) {
           document.getElementById('roomNameDisplay').textContent = msg.roomName || '방';
           document.getElementById('roomCodeDisplay').textContent = currentRoomCode;
           document.getElementById('statusDot').classList.add('connected');
+          document.getElementById('reconnect-bar')?.classList.remove('show');
           showScreen('screen-connected');
           break;
         case 'membersUpdate':
