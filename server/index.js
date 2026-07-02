@@ -174,7 +174,7 @@ const httpServer = createServer(async (req, res) => {
 httpServer.listen(PORT, () => {
   console.log(`\nTeam Pulse server  →  ws://localhost:${PORT}`);
   console.log(`OAuth callback     →  http://localhost:${PORT}/auth/callback`);
-  console.log(`Repo 제한          →  ${GITHUB_REPO}`);
+  console.log(`Repo 제한          →  per-room`);
   console.log(`저장된 방: ${Object.keys(rooms).length}개\n`);
 });
 
