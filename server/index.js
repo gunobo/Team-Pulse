@@ -160,11 +160,11 @@ const httpServer = createServer(async (req, res) => {
     const { accessToken } = validTokens.get(token);
     try {
       // 본인 레포 + 속한 org 레포 전부
-      const r = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', {
+      const r = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member', {
         headers: { Authorization: `Bearer ${accessToken}`, 'User-Agent': 'Team-Pulse' },
       });
       const data = await r.json();
-      const repos = data.map(r => r.full_name);
+      const repos = Array.isArray(data) ? data.map(r => r.full_name) : [];
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ repos }));
     } catch {
