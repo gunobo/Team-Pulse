@@ -65,7 +65,7 @@ class TeamPulseSidebarProvider {
                     const remote = await this.detectGitRemote();
                     this.postToWebview({ type: 'init', login, remote });
                     // 저장된 방 코드 있으면 자동 재연결
-                    const savedCode = this.context.globalState.get('roomCode');
+                    const savedCode = this.getRoomCode();
                     const savedToken = this.context.globalState.get('authToken');
                     if (savedCode && savedToken && login) {
                         const serverUrl = vscode.workspace.getConfiguration('teamPulse').get('serverUrl') ?? 'wss://ws.imjemin.co.kr';
@@ -79,7 +79,7 @@ class TeamPulseSidebarProvider {
                 case 'logout':
                     await this.context.globalState.update('authToken', undefined);
                     await this.context.globalState.update('githubLogin', undefined);
-                    await this.context.globalState.update('roomCode', undefined);
+                    await this.setRoomCode(undefined);
                     this.disconnect();
                     this.postToWebview({ type: 'init', login: undefined, remote: await this.detectGitRemote() });
                     break;
@@ -101,6 +101,19 @@ class TeamPulseSidebarProvider {
                     break;
             }
         });
+    }
+    getWorkspaceKey() {
+        const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!root)
+            return 'default';
+        // 경로를 안전한 키로 변환
+        return root.replace(/[^a-zA-Z0-9]/g, '_');
+    }
+    getRoomCode() {
+        return this.context.globalState.get(`roomCode_${this.getWorkspaceKey()}`);
+    }
+    async setRoomCode(code) {
+        await this.context.globalState.update(`roomCode_${this.getWorkspaceKey()}`, code);
     }
     detectGitRemote() {
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -179,7 +192,7 @@ class TeamPulseSidebarProvider {
     }
     async connect() {
         // 자동 재연결용 (저장된 코드로 바로 참가)
-        const savedCode = this.context.globalState.get('roomCode');
+        const savedCode = this.getRoomCode();
         const savedToken = this.context.globalState.get('authToken');
         const savedLogin = this.context.globalState.get('githubLogin');
         if (savedCode && savedToken && savedLogin) {
@@ -201,7 +214,7 @@ class TeamPulseSidebarProvider {
         const auth = await this.getAuthToken();
         if (!auth)
             return;
-        await this.context.globalState.update('roomCode', code);
+        await this.setRoomCode(code);
         this.setupWebSocket(serverUrl, auth.login, auth.token, false, code);
     }
     setupWebSocket(serverUrl, username, token, isCreate, joinCode, roomName, repoName) {
@@ -237,7 +250,7 @@ class TeamPulseSidebarProvider {
             this.reconnectTimer = setTimeout(() => {
                 const config = vscode.workspace.getConfiguration('teamPulse');
                 const serverUrl = config.get('serverUrl') ?? 'wss://ws.imjemin.co.kr';
-                const savedCode = this.context.globalState.get('roomCode');
+                const savedCode = this.getRoomCode();
                 const savedToken = this.context.globalState.get('authToken');
                 const savedLogin = this.context.globalState.get('githubLogin');
                 if (savedCode && savedToken && savedLogin) {
@@ -252,11 +265,11 @@ class TeamPulseSidebarProvider {
     handleMessage(msg) {
         switch (msg.type) {
             case 'roomCreated':
-                this.context.globalState.update('roomCode', msg.code);
+                this.setRoomCode(msg.code);
                 this.postToWebview({ type: 'roomCreated', roomName: msg.roomName, code: msg.code });
                 break;
             case 'welcome':
-                this.postToWebview({ type: 'welcome', roomName: msg.roomName, code: this.context.globalState.get('roomCode') });
+                this.postToWebview({ type: 'welcome', roomName: msg.roomName, code: this.getRoomCode() });
                 break;
             case 'members':
                 this.members.clear();
@@ -297,17 +310,20 @@ class TeamPulseSidebarProvider {
                     });
                 }
                 else if (msg.code === 'ROOM_EXPIRED') {
-                    this.context.globalState.update('roomCode', undefined);
+                    this.setRoomCode(undefined);
                     vscode.window.showWarningMessage('Team Pulse: 방이 만료됐어요. 새로 연결해주세요.', '다시 설정').then(a => {
                         if (a === '다시 설정')
                             this.connect();
                     });
                 }
                 else if (msg.message.includes('초대 코드') || msg.message.includes('코드')) {
-                    this.context.globalState.update('roomCode', undefined);
+                    this.setRoomCode(undefined);
                 }
                 break;
         }
+    }
+    async clearRoomCode() {
+        await this.setRoomCode(undefined);
     }
     disconnect() {
         clearTimeout(this.reconnectTimer);

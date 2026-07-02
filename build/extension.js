@@ -52,18 +52,18 @@ function activate(context) {
         sidebarProvider.disconnect();
         statusBar.setConnected(false);
     }), vscode.commands.registerCommand('teamPulse.resetCode', async () => {
-        await context.globalState.update('roomCode', undefined);
+        await sidebarProvider.clearRoomCode();
         vscode.window.showInformationMessage('Team Pulse: 방 코드가 초기화됐어요. 다시 Connect 하세요.');
     }), vscode.commands.registerCommand('teamPulse.logout', async () => {
         await context.globalState.update('authToken', undefined);
         await context.globalState.update('githubLogin', undefined);
-        await context.globalState.update('roomCode', undefined);
+        await sidebarProvider.clearRoomCode();
         sidebarProvider.disconnect();
         vscode.window.showInformationMessage('Team Pulse: 로그아웃됐어요.');
     }), vscode.commands.registerCommand('teamPulse.relogin', async () => {
         await context.globalState.update('authToken', undefined);
         await context.globalState.update('githubLogin', undefined);
-        await context.globalState.update('roomCode', undefined);
+        await sidebarProvider.clearRoomCode();
         sidebarProvider.disconnect();
         vscode.window.showInformationMessage('Team Pulse: 다시 로그인할게요...');
         sidebarProvider.connect();
