@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TeamPulseSidebarProvider = void 0;
 const vscode = __importStar(require("vscode"));
 const ws_module = __importStar(require("ws"));
+const cp = __importStar(require("child_process"));
 const sidebarHtml_1 = require("./webview/sidebarHtml");
 const WS = ws_module.default ?? ws_module.WebSocket ?? ws_module;
 class TeamPulseSidebarProvider {
@@ -55,16 +56,90 @@ class TeamPulseSidebarProvider {
             localResourceRoots: [this.context.extensionUri],
         };
         webviewView.webview.html = (0, sidebarHtml_1.getSidebarHtml)(webviewView.webview, this.context.extensionUri);
-        webviewView.webview.onDidReceiveMessage((message) => {
+        // 웹뷰 로드 후 로그인 상태 + git remote 전달
+        webviewView.webview.onDidReceiveMessage(async (message) => {
             switch (message.type) {
-                case 'refresh':
-                    this.postMembers();
+                case 'ready': {
+                    const login = this.context.globalState.get('githubLogin');
+                    const remote = await this.detectGitRemote();
+                    this.postToWebview({ type: 'init', login, remote });
+                    // 저장된 방 코드 있으면 자동 재연결
+                    const savedCode = this.context.globalState.get('roomCode');
+                    const savedToken = this.context.globalState.get('authToken');
+                    if (savedCode && savedToken && login) {
+                        const serverUrl = vscode.workspace.getConfiguration('teamPulse').get('serverUrl') ?? 'wss://ws.imjemin.co.kr';
+                        this.setupWebSocket(serverUrl, login, savedToken, false, savedCode);
+                    }
+                    break;
+                }
+                case 'login':
+                    this.doLogin();
+                    break;
+                case 'logout':
+                    await this.context.globalState.update('authToken', undefined);
+                    await this.context.globalState.update('githubLogin', undefined);
+                    await this.context.globalState.update('roomCode', undefined);
+                    this.disconnect();
+                    this.postToWebview({ type: 'init', login: undefined, remote: await this.detectGitRemote() });
+                    break;
+                case 'createRoom':
+                    this.connectAndCreate(message.roomName, message.repo);
+                    break;
+                case 'joinRoom':
+                    this.connectAndJoin(message.code);
+                    break;
+                case 'disconnect':
+                    this.disconnect();
+                    break;
+                case 'copyCode':
+                    vscode.env.clipboard.writeText(message.code);
+                    vscode.window.showInformationMessage(`Team Pulse: 코드 복사됨 — ${message.code}`);
                     break;
                 case 'notify':
                     this.sendToServer(message);
                     break;
             }
         });
+    }
+    detectGitRemote() {
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!workspaceRoot)
+            return Promise.resolve('');
+        return new Promise(resolve => {
+            cp.exec('git remote get-url origin', { cwd: workspaceRoot }, (err, stdout) => {
+                if (err) {
+                    resolve('');
+                    return;
+                }
+                const url = stdout.trim();
+                // https://github.com/owner/repo.git → owner/repo
+                const match = url.match(/github\.com[:/](.+?)(?:\.git)?$/);
+                resolve(match ? match[1] : '');
+            });
+        });
+    }
+    async doLogin() {
+        const serverBase = 'https://ws.imjemin.co.kr';
+        const state = require('crypto').randomBytes(8).toString('hex');
+        const oauthUrl = `https://github.com/login/oauth/authorize?client_id=Ov23li54euhr9T1jQyBX&scope=repo,read:org&state=${state}`;
+        await vscode.env.openExternal(vscode.Uri.parse(oauthUrl));
+        this.postToWebview({ type: 'loggingIn' });
+        for (let i = 0; i < 24; i++) {
+            await new Promise(r => setTimeout(r, 5000));
+            try {
+                const res = await fetch(`${serverBase}/auth/status?state=${state}`);
+                const data = await res.json();
+                if (data.ready) {
+                    await this.context.globalState.update('authToken', data.token);
+                    await this.context.globalState.update('githubLogin', data.login);
+                    const remote = await this.detectGitRemote();
+                    this.postToWebview({ type: 'init', login: data.login, remote });
+                    return;
+                }
+            }
+            catch { }
+        }
+        this.postToWebview({ type: 'loginFailed' });
     }
     async fetchUserRepos(authToken) {
         const serverBase = 'https://ws.imjemin.co.kr';
@@ -102,67 +177,31 @@ class TeamPulseSidebarProvider {
         return undefined;
     }
     async connect() {
+        // 자동 재연결용 (저장된 코드로 바로 참가)
+        const savedCode = this.context.globalState.get('roomCode');
+        const savedToken = this.context.globalState.get('authToken');
+        const savedLogin = this.context.globalState.get('githubLogin');
+        if (savedCode && savedToken && savedLogin) {
+            const serverUrl = vscode.workspace.getConfiguration('teamPulse').get('serverUrl') ?? 'wss://ws.imjemin.co.kr';
+            this.setupWebSocket(serverUrl, savedLogin, savedToken, false, savedCode);
+        }
+    }
+    async connectAndCreate(roomName, repo) {
         const config = vscode.workspace.getConfiguration('teamPulse');
         const serverUrl = config.get('serverUrl') ?? 'wss://ws.imjemin.co.kr';
-        // GitHub 인증
         const auth = await this.getAuthToken();
         if (!auth)
             return;
-        const username = auth.login;
-        // 저장된 방 코드 확인
-        const savedCode = this.context.globalState.get('roomCode');
-        // 방 만들기 vs 참가 선택
-        const action = savedCode
-            ? await vscode.window.showQuickPick([
-                { label: '$(plug) 기존 방 참가', description: `코드: ${savedCode}`, value: 'join-saved' },
-                { label: '$(add) 다른 코드로 참가', value: 'join-new' },
-                { label: '$(plus) 새 방 만들기', value: 'create' },
-            ], { title: 'Team Pulse', placeHolder: '어떻게 하시겠어요?' })
-            : await vscode.window.showQuickPick([
-                { label: '$(plus) 새 방 만들기', value: 'create' },
-                { label: '$(key) 초대 코드로 참가', value: 'join-new' },
-            ], { title: 'Team Pulse', placeHolder: '어떻게 하시겠어요?' });
-        if (!action)
+        this.setupWebSocket(serverUrl, auth.login, auth.token, true, undefined, roomName, repo ?? undefined);
+    }
+    async connectAndJoin(code) {
+        const config = vscode.workspace.getConfiguration('teamPulse');
+        const serverUrl = config.get('serverUrl') ?? 'wss://ws.imjemin.co.kr';
+        const auth = await this.getAuthToken();
+        if (!auth)
             return;
-        let joinCode;
-        let roomName;
-        let repoName;
-        if (action.value === 'create') {
-            // 방장 레포 목록 가져오기
-            vscode.window.showInformationMessage('Team Pulse: 레포 목록 불러오는 중...');
-            const repos = await this.fetchUserRepos(auth.token);
-            const picked = await vscode.window.showQuickPick([
-                { label: '$(circle-slash) 제한 없음', description: '누구든 코드만 있으면 입장', value: '' },
-                ...repos.map(r => ({ label: `$(repo) ${r}`, description: `${r} collaborator만 입장`, value: r })),
-            ], { title: '방과 연결할 GitHub 레포 선택', placeHolder: '레포를 선택하면 해당 collaborator만 입장 가능', ignoreFocusOut: true });
-            if (picked === undefined)
-                return;
-            repoName = picked.value;
-            roomName = await vscode.window.showInputBox({
-                title: '방 이름',
-                prompt: '팀원들에게 보여질 방 이름을 입력하세요',
-                placeHolder: repoName ? repoName.split('/')[1] : '우리 팀',
-                ignoreFocusOut: true,
-            });
-            if (roomName === undefined)
-                return;
-        }
-        else if (action.value === 'join-new') {
-            const input = await vscode.window.showInputBox({
-                title: '초대 코드 입력',
-                prompt: '팀원에게 받은 6자리 코드를 입력하세요',
-                placeHolder: 'A1B2C3',
-                ignoreFocusOut: true,
-            });
-            if (!input)
-                return;
-            joinCode = input.trim().toUpperCase();
-            await this.context.globalState.update('roomCode', joinCode);
-        }
-        else {
-            joinCode = savedCode;
-        }
-        this.setupWebSocket(serverUrl, username, auth.token, action.value === 'create', joinCode, roomName, repoName);
+        await this.context.globalState.update('roomCode', code);
+        this.setupWebSocket(serverUrl, auth.login, auth.token, false, code);
     }
     setupWebSocket(serverUrl, username, token, isCreate, joinCode, roomName, repoName) {
         clearTimeout(this.reconnectTimer);
@@ -205,20 +244,12 @@ class TeamPulseSidebarProvider {
     }
     handleMessage(msg) {
         switch (msg.type) {
-            case 'roomCreated': {
-                // 방 만들기 성공 → 코드 저장 후 팀원에게 공유 안내
+            case 'roomCreated':
                 this.context.globalState.update('roomCode', msg.code);
-                vscode.window.showInformationMessage(`방 생성 완료! 초대 코드: ${msg.code}`, '클립보드에 복사').then(action => {
-                    if (action === '클립보드에 복사') {
-                        vscode.env.clipboard.writeText(msg.code);
-                        vscode.window.showInformationMessage(`"${msg.code}" 복사됐어요!`);
-                    }
-                });
-                this.postToWebview({ type: 'connected', roomName: msg.roomName, code: msg.code });
+                this.postToWebview({ type: 'roomCreated', roomName: msg.roomName, code: msg.code });
                 break;
-            }
             case 'welcome':
-                this.postToWebview({ type: 'connected', roomName: msg.roomName });
+                this.postToWebview({ type: 'welcome', roomName: msg.roomName, code: this.context.globalState.get('roomCode') });
                 break;
             case 'members':
                 this.members.clear();
