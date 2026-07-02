@@ -1,9 +1,13 @@
 {
-  "name": "team-pulse",
-  "displayName": "Team Pulse",
+  "name": "teamPulse",
+  "displayName": "Team Pulse by IMJEMIN",
   "description": "Real-time team collaboration activity monitor for VS Code",
   "version": "0.1.0",
-  "publisher": "team-pulse",
+  "publisher": "IMJEMIN",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gunobo/Team-Pulse"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -21,7 +25,7 @@
         {
           "id": "team-pulse",
           "title": "Team Pulse",
-          "icon": "media/team-pulse-128.svg"
+          "icon": "media/team-pulse-128.png"
         }
       ]
     },
