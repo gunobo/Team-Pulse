@@ -39,6 +39,7 @@ function saveTokens(tokens) {
   const obj = Object.fromEntries(tokens);
   writeFileSync(TOKENS_PATH, JSON.stringify(obj, null, 2));
 }
+if (!existsSync(TOKENS_PATH)) saveTokens(new Map());
 
 const rooms = loadRooms();
 
