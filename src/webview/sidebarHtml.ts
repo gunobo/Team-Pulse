@@ -165,7 +165,7 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
 
     .member-card {
       display: flex; align-items: center; gap: 8px;
-      padding: 6px 6px; border-radius: 5px; cursor: default;
+      padding: 6px 6px; border-radius: 5px; cursor: pointer;
       transition: background 0.15s;
     }
     .member-card:hover { background: var(--vscode-list-hoverBackground); }
@@ -185,7 +185,22 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
     .member-info { flex: 1; min-width: 0; }
     .member-name { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .member-file { font-size: 10px; color: var(--vscode-descriptionForeground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
-    .member-git { font-size: 10px; color: #f59e0b; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .member-git { font-size: 10px; color: #f59e0b; margin-top: 2px; }
+
+    .member-detail {
+      display: none; margin: 0 6px 4px 40px;
+      background: var(--vscode-input-background);
+      border-radius: 4px; padding: 6px 8px;
+    }
+    .member-detail.open { display: block; }
+    .member-detail-title { font-size: 10px; font-weight: 600; color: var(--vscode-descriptionForeground); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .member-detail-file {
+      font-size: 10px; color: var(--vscode-foreground);
+      padding: 2px 0; display: flex; align-items: center; gap: 5px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .member-detail-file::before { content: '✏'; font-size: 9px; flex-shrink: 0; }
+    .member-detail-empty { font-size: 10px; color: var(--vscode-descriptionForeground); }
 
     .disconnect-btn {
       width: 100%; padding: 6px; background: none;
@@ -411,21 +426,47 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
         (offline.length ? '<div class="section-label" style="margin-top:8px">Offline — ' + offline.length + '</div>' + offline.map(memberCard).join('') : '');
     }
 
+    const openDetails = new Set();
+
     function memberCard(m) {
       const initial = (m.name || '?')[0].toUpperCase();
       const fileLabel = m.file ? m.file.split('/').pop() : '—';
-      const gitFiles = m.modifiedFiles && m.modifiedFiles.length > 0
-        ? \`✏ \${m.modifiedFiles.length}개 수정 중\`
-        : '';
-      return \`<div class="member-card">
+      const hasGit = m.modifiedFiles && m.modifiedFiles.length > 0;
+      const gitLabel = hasGit ? \`✏ \${m.modifiedFiles.length}개 수정 중\` : '';
+      const isOpen = openDetails.has(m.id);
+
+      const detailHtml = \`<div class="member-detail \${isOpen ? 'open' : ''}" id="detail-\${m.id}">
+        <div class="member-detail-title">수정 중인 파일</div>
+        \${hasGit
+          ? m.modifiedFiles.map(f => \`<div class="member-detail-file">\${f.split('/').pop()}</div>\`).join('')
+          : '<div class="member-detail-empty">수정 중인 파일 없음</div>'
+        }
+      </div>\`;
+
+      return \`<div class="member-card" data-id="\${m.id}">
         <div class="avatar">\${initial}<div class="avatar-badge badge-\${m.status}"></div></div>
         <div class="member-info">
           <div class="member-name">\${m.name}</div>
           <div class="member-file">\${fileLabel}</div>
-          \${gitFiles ? \`<div class="member-git">\${gitFiles}</div>\` : ''}
+          \${gitLabel ? \`<div class="member-git">\${gitLabel}</div>\` : ''}
         </div>
-      </div>\`;
+      </div>\${detailHtml}\`;
     }
+
+    document.getElementById('memberList').addEventListener('click', (e) => {
+      const card = e.target.closest('.member-card');
+      if (!card) return;
+      const id = card.dataset.id;
+      const detail = document.getElementById('detail-' + id);
+      if (!detail) return;
+      if (openDetails.has(id)) {
+        openDetails.delete(id);
+        detail.classList.remove('open');
+      } else {
+        openDetails.add(id);
+        detail.classList.add('open');
+      }
+    });
 
     // 버튼 이벤트 바인딩
     document.getElementById('btn-login').addEventListener('click', doLogin);
