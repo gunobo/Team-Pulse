@@ -264,6 +264,11 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
           vscode.window.showInformationMessage('Team Pulse: 다시 로그인할게요...', '로그인').then(a => {
             if (a === '로그인') this.connect();
           });
+        } else if (msg.code === 'ROOM_EXPIRED') {
+          this.context.globalState.update('roomCode', undefined);
+          vscode.window.showWarningMessage('Team Pulse: 방이 만료됐어요. 새로 연결해주세요.', '다시 설정').then(a => {
+            if (a === '다시 설정') this.connect();
+          });
         } else if (msg.message.includes('초대 코드') || msg.message.includes('코드')) {
           this.context.globalState.update('roomCode', undefined);
         }

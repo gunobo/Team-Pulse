@@ -236,6 +236,7 @@ wss.on('connection', (ws, req) => {
         repo:      msg.repo?.trim() || null,
         createdBy: githubLogin,
         createdAt: Date.now(),
+        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
       };
       saveRooms(rooms);
       sessions[code] = new Map();
@@ -255,6 +256,11 @@ wss.on('connection', (ws, req) => {
         const e = rateLimitMap.get(ip) ?? { last: 0, fails: 0 };
         rateLimitMap.set(ip, { ...e, fails: e.fails + 1 });
         return send(ws, { type: 'error', message: '존재하지 않는 초대 코드예요.' });
+      }
+      if (rooms[code].expiresAt && Date.now() > rooms[code].expiresAt) {
+        delete rooms[code];
+        saveRooms(rooms);
+        return send(ws, { type: 'error', message: '방이 만료됐어요. 새로 만들어주세요.', code: 'ROOM_EXPIRED' });
       }
       if (!sessions[code]) sessions[code] = new Map();
 
