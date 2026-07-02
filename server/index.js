@@ -49,7 +49,6 @@ const sessions    = {};          // roomCode → Map<clientId, {ws, member}>
 const authPending = new Map();   // state → { token, githubUser, expires }
 const validTokens = loadTokens(); // token → { login, accessToken, expiresAt }
 const rateLimitMap= new Map();   // ip    → { last, fails }
-const ipConnections = new Map(); // `${ip}:${roomCode}` → { clientId, ws } — 방당 IP 1개 제한
 const MAX_FAILS   = 10000;
 let nextId        = 1;
 
@@ -798,21 +797,16 @@ wss.on('connection', (ws, req) => {
       }
       if (!sessions[code]) sessions[code] = new Map();
 
-      // 같은 IP가 이미 이 방에 접속 중이면 기존 연결 종료 (다른 방은 허용)
-      const ipRoomKey = `${ip}:${code}`;
-      const prevConn = ipConnections.get(ipRoomKey);
+      // 같은 GitHub 계정이 이미 이 방에 접속 중이면 기존 연결 교체
+      const prevConn = [...sessions[code].values()].find(c => c.member.name === githubLogin);
       if (prevConn) {
-        const prevEntry = sessions[code]?.get(prevConn.clientId);
-        if (prevEntry) {
-          sessions[code].delete(prevConn.clientId);
-          broadcastRoom(code, { type: 'memberLeft', id: prevConn.clientId });
-        }
+        sessions[code].delete(prevConn.member.id);
+        broadcastRoom(code, { type: 'memberLeft', id: prevConn.member.id });
         try { prevConn.ws.close(1000, 'Replaced by new connection'); } catch {}
       }
 
       clearTimeout(authTimer);
       roomCode = code;
-      ipConnections.set(ipRoomKey, { clientId, ws });
       joinRoom(ws, clientId, code, githubLogin);
       send(ws, { type: 'welcome', roomName: rooms[code].name });
       console.log(`[입장] ${githubLogin} → "${rooms[code].name}" (${code})`);
@@ -850,12 +844,6 @@ wss.on('connection', (ws, req) => {
 
   ws.on('close', () => {
     clearTimeout(authTimer);
-    // IP 추적 제거 (현재 클라이언트가 등록된 것일 때만)
-    if (roomCode) {
-      const ipRoomKey = `${ip}:${roomCode}`;
-      const tracked = ipConnections.get(ipRoomKey);
-      if (tracked && tracked.clientId === clientId) ipConnections.delete(ipRoomKey);
-    }
     if (!roomCode || !sessions[roomCode]) return;
     const e = sessions[roomCode].get(clientId);
     if (e) {
