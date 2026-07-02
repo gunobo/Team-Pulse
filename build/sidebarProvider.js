@@ -259,8 +259,12 @@ class TeamPulseSidebarProvider {
             }
             this.handleMessage(msg);
         });
-        this.ws.on('close', () => {
+        this.ws.on('close', (code, reasonBuf) => {
             clearInterval(this.pingTimer);
+            // 서버가 "다른 인스턴스로 교체" 할 때는 재접속하지 않음 (ping-pong 루프 방지)
+            const reason = reasonBuf?.toString() ?? '';
+            if (reason.includes('Replaced'))
+                return;
             this.postToWebview({ type: 'disconnected' });
             this.reconnectTimer = setTimeout(() => {
                 const config = vscode.workspace.getConfiguration('teamPulse');
