@@ -1,0 +1,307 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TeamPulseSidebarProvider = void 0;
+const vscode = __importStar(require("vscode"));
+const ws_module = __importStar(require("ws"));
+const sidebarHtml_1 = require("./webview/sidebarHtml");
+const WS = ws_module.default ?? ws_module.WebSocket ?? ws_module;
+class TeamPulseSidebarProvider {
+    context;
+    view;
+    ws;
+    members = new Map();
+    myId;
+    reconnectTimer;
+    constructor(context) {
+        this.context = context;
+    }
+    resolveWebviewView(webviewView) {
+        this.view = webviewView;
+        webviewView.webview.options = {
+            enableScripts: true,
+            localResourceRoots: [this.context.extensionUri],
+        };
+        webviewView.webview.html = (0, sidebarHtml_1.getSidebarHtml)(webviewView.webview, this.context.extensionUri);
+        webviewView.webview.onDidReceiveMessage((message) => {
+            switch (message.type) {
+                case 'refresh':
+                    this.postMembers();
+                    break;
+                case 'notify':
+                    this.sendToServer(message);
+                    break;
+            }
+        });
+    }
+    async fetchUserRepos(authToken) {
+        const serverBase = 'https://ws.imjemin.co.kr';
+        const res = await fetch(`${serverBase}/auth/repos?token=${authToken}`);
+        const data = await res.json();
+        return data.repos ?? [];
+    }
+    async getAuthToken(roomCode) {
+        const saved = this.context.globalState.get('authToken');
+        const login = this.context.globalState.get('githubLogin');
+        if (saved && login)
+            return { token: saved, login };
+        const serverBase = 'https://ws.imjemin.co.kr';
+        const state = require('crypto').randomBytes(8).toString('hex');
+        const roomParam = roomCode ? `&roomCode=${roomCode}` : '';
+        const oauthUrl = `https://github.com/login/oauth/authorize?client_id=Ov23li54euhr9T1jQyBX&scope=repo,read:org&state=${state}${roomParam}`;
+        // 브라우저 열기
+        await vscode.env.openExternal(vscode.Uri.parse(oauthUrl));
+        vscode.window.showInformationMessage('GitHub 로그인 후 VS Code로 돌아오세요.');
+        // 최대 2분간 폴링
+        for (let i = 0; i < 24; i++) {
+            await new Promise(r => setTimeout(r, 5000));
+            try {
+                const res = await fetch(`${serverBase}/auth/status?state=${state}`);
+                const data = await res.json();
+                if (data.ready) {
+                    await this.context.globalState.update('authToken', data.token);
+                    await this.context.globalState.update('githubLogin', data.login);
+                    return { token: data.token, login: data.login };
+                }
+            }
+            catch { }
+        }
+        vscode.window.showErrorMessage('Team Pulse: 인증 시간 초과. 다시 시도해주세요.');
+        return undefined;
+    }
+    async connect() {
+        const config = vscode.workspace.getConfiguration('teamPulse');
+        const serverUrl = config.get('serverUrl') ?? 'wss://ws.imjemin.co.kr';
+        // GitHub 인증
+        const auth = await this.getAuthToken();
+        if (!auth)
+            return;
+        const username = auth.login;
+        // 저장된 방 코드 확인
+        const savedCode = this.context.globalState.get('roomCode');
+        // 방 만들기 vs 참가 선택
+        const action = savedCode
+            ? await vscode.window.showQuickPick([
+                { label: '$(plug) 기존 방 참가', description: `코드: ${savedCode}`, value: 'join-saved' },
+                { label: '$(add) 다른 코드로 참가', value: 'join-new' },
+                { label: '$(plus) 새 방 만들기', value: 'create' },
+            ], { title: 'Team Pulse', placeHolder: '어떻게 하시겠어요?' })
+            : await vscode.window.showQuickPick([
+                { label: '$(plus) 새 방 만들기', value: 'create' },
+                { label: '$(key) 초대 코드로 참가', value: 'join-new' },
+            ], { title: 'Team Pulse', placeHolder: '어떻게 하시겠어요?' });
+        if (!action)
+            return;
+        let joinCode;
+        let roomName;
+        let repoName;
+        if (action.value === 'create') {
+            // 방장 레포 목록 가져오기
+            vscode.window.showInformationMessage('Team Pulse: 레포 목록 불러오는 중...');
+            const repos = await this.fetchUserRepos(auth.token);
+            if (repos.length === 0) {
+                vscode.window.showErrorMessage('Team Pulse: 레포를 불러올 수 없어요.');
+                return;
+            }
+            const picked = await vscode.window.showQuickPick([
+                { label: '$(circle-slash) 제한 없음', description: '누구든 코드만 있으면 입장', value: '' },
+                ...repos.map(r => ({ label: `$(repo) ${r}`, description: `${r} collaborator만 입장`, value: r })),
+            ], { title: '방과 연결할 GitHub 레포 선택', placeHolder: '레포를 선택하면 해당 collaborator만 입장 가능', ignoreFocusOut: true });
+            if (picked === undefined)
+                return;
+            repoName = picked.value;
+            roomName = await vscode.window.showInputBox({
+                title: '방 이름',
+                prompt: '팀원들에게 보여질 방 이름을 입력하세요',
+                placeHolder: repoName ? repoName.split('/')[1] : '우리 팀',
+                ignoreFocusOut: true,
+            });
+            if (roomName === undefined)
+                return;
+        }
+        else if (action.value === 'join-new') {
+            const input = await vscode.window.showInputBox({
+                title: '초대 코드 입력',
+                prompt: '팀원에게 받은 6자리 코드를 입력하세요',
+                placeHolder: 'A1B2C3',
+                ignoreFocusOut: true,
+            });
+            if (!input)
+                return;
+            joinCode = input.trim().toUpperCase();
+            await this.context.globalState.update('roomCode', joinCode);
+        }
+        else {
+            joinCode = savedCode;
+        }
+        this.setupWebSocket(serverUrl, username, auth.token, action.value === 'create', joinCode, roomName, repoName);
+    }
+    setupWebSocket(serverUrl, username, token, isCreate, joinCode, roomName, repoName) {
+        clearTimeout(this.reconnectTimer);
+        this.ws = new WS(serverUrl);
+        this.ws.on('open', () => {
+            this.postToWebview({ type: 'connecting' });
+            if (isCreate) {
+                this.sendToServer({ type: 'createRoom', token, roomName: roomName || `${username}의 방`, repo: repoName || null });
+            }
+            else {
+                this.sendToServer({ type: 'joinRoom', token, code: joinCode });
+            }
+        });
+        this.ws.on('message', (raw) => {
+            let msg;
+            try {
+                msg = JSON.parse(raw.toString());
+            }
+            catch {
+                return;
+            }
+            this.handleMessage(msg);
+        });
+        this.ws.on('close', () => {
+            this.postToWebview({ type: 'disconnected' });
+            this.reconnectTimer = setTimeout(() => {
+                const config = vscode.workspace.getConfiguration('teamPulse');
+                const serverUrl = config.get('serverUrl') ?? 'wss://ws.imjemin.co.kr';
+                const savedCode = this.context.globalState.get('roomCode');
+                const savedToken = this.context.globalState.get('authToken');
+                const savedLogin = this.context.globalState.get('githubLogin');
+                if (savedCode && savedToken && savedLogin) {
+                    this.setupWebSocket(serverUrl, savedLogin, savedToken, false, savedCode);
+                }
+            }, 5000);
+        });
+        this.ws.on('error', (err) => {
+            vscode.window.showErrorMessage(`Team Pulse: ${err.message}`);
+        });
+    }
+    handleMessage(msg) {
+        switch (msg.type) {
+            case 'roomCreated': {
+                // 방 만들기 성공 → 코드 저장 후 팀원에게 공유 안내
+                this.context.globalState.update('roomCode', msg.code);
+                vscode.window.showInformationMessage(`방 생성 완료! 초대 코드: ${msg.code}`, '클립보드에 복사').then(action => {
+                    if (action === '클립보드에 복사') {
+                        vscode.env.clipboard.writeText(msg.code);
+                        vscode.window.showInformationMessage(`"${msg.code}" 복사됐어요!`);
+                    }
+                });
+                this.postToWebview({ type: 'connected', roomName: msg.roomName, code: msg.code });
+                break;
+            }
+            case 'welcome':
+                this.postToWebview({ type: 'connected', roomName: msg.roomName });
+                break;
+            case 'members':
+                this.members.clear();
+                for (const m of msg.members) {
+                    if (m.id !== this.myId)
+                        this.members.set(m.id, m);
+                }
+                this.postMembers();
+                break;
+            case 'memberJoined':
+                if (msg.member.id !== this.myId) {
+                    this.members.set(msg.member.id, msg.member);
+                    this.postMembers();
+                    vscode.window.showInformationMessage(`Team Pulse: ${msg.member.name} 입장`);
+                }
+                break;
+            case 'memberUpdated':
+                if (msg.member.id !== this.myId) {
+                    this.members.set(msg.member.id, msg.member);
+                    this.postMembers();
+                }
+                break;
+            case 'memberLeft':
+                this.members.delete(msg.id);
+                this.postMembers();
+                break;
+            case 'notification':
+                vscode.window.showInformationMessage(`💬 ${msg.from}: ${msg.message}`);
+                break;
+            case 'error':
+                vscode.window.showErrorMessage(`Team Pulse: ${msg.message}`);
+                if (msg.code === 'TOKEN_EXPIRED') {
+                    this.context.globalState.update('authToken', undefined);
+                    this.context.globalState.update('githubLogin', undefined);
+                    vscode.window.showInformationMessage('Team Pulse: 다시 로그인할게요...', '로그인').then(a => {
+                        if (a === '로그인')
+                            this.connect();
+                    });
+                }
+                else if (msg.code === 'ROOM_EXPIRED') {
+                    this.context.globalState.update('roomCode', undefined);
+                    vscode.window.showWarningMessage('Team Pulse: 방이 만료됐어요. 새로 연결해주세요.', '다시 설정').then(a => {
+                        if (a === '다시 설정')
+                            this.connect();
+                    });
+                }
+                else if (msg.message.includes('초대 코드') || msg.message.includes('코드')) {
+                    this.context.globalState.update('roomCode', undefined);
+                }
+                break;
+        }
+    }
+    disconnect() {
+        clearTimeout(this.reconnectTimer);
+        this.ws?.close();
+        this.ws = undefined;
+        this.myId = undefined;
+        this.members.clear();
+        this.postToWebview({ type: 'disconnected' });
+    }
+    refresh() {
+        this.postMembers();
+    }
+    broadcastFileOpen(filePath) {
+        this.sendToServer({ type: 'fileOpen', file: filePath });
+    }
+    broadcastAway(away) {
+        this.sendToServer({ type: 'statusChange', status: away ? 'away' : 'online' });
+    }
+    postMembers() {
+        this.postToWebview({ type: 'membersUpdate', members: [...this.members.values()] });
+    }
+    sendToServer(data) {
+        if (this.ws?.readyState === WS.OPEN)
+            this.ws.send(JSON.stringify(data));
+    }
+    postToWebview(message) {
+        this.view?.webview.postMessage(message);
+    }
+}
+exports.TeamPulseSidebarProvider = TeamPulseSidebarProvider;
+//# sourceMappingURL=sidebarProvider.js.map
