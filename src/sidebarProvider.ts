@@ -196,6 +196,10 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
   ) {
     clearTimeout(this.reconnectTimer);
     clearInterval(this.pingTimer);
+    if (this.ws) {
+      this.ws.removeAllListeners();
+      this.ws.close();
+    }
     this.ws = new WS(serverUrl);
 
     this.ws.on('open', () => {

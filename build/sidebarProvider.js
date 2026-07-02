@@ -220,6 +220,10 @@ class TeamPulseSidebarProvider {
     setupWebSocket(serverUrl, username, token, isCreate, joinCode, roomName, repoName) {
         clearTimeout(this.reconnectTimer);
         clearInterval(this.pingTimer);
+        if (this.ws) {
+            this.ws.removeAllListeners();
+            this.ws.close();
+        }
         this.ws = new WS(serverUrl);
         this.ws.on('open', () => {
             this.postToWebview({ type: 'connecting' });
