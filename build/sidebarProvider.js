@@ -46,6 +46,7 @@ class TeamPulseSidebarProvider {
     members = new Map();
     myId;
     reconnectTimer;
+    pingTimer;
     constructor(context) {
         this.context = context;
     }
@@ -205,6 +206,7 @@ class TeamPulseSidebarProvider {
     }
     setupWebSocket(serverUrl, username, token, isCreate, joinCode, roomName, repoName) {
         clearTimeout(this.reconnectTimer);
+        clearInterval(this.pingTimer);
         this.ws = new WS(serverUrl);
         this.ws.on('open', () => {
             this.postToWebview({ type: 'connecting' });
@@ -214,6 +216,10 @@ class TeamPulseSidebarProvider {
             else {
                 this.sendToServer({ type: 'joinRoom', token, code: joinCode });
             }
+            // 30초마다 ping → Cloudflare idle timeout 방지
+            this.pingTimer = setInterval(() => {
+                this.sendToServer({ type: 'ping' });
+            }, 30000);
         });
         this.ws.on('message', (raw) => {
             let msg;
@@ -226,6 +232,7 @@ class TeamPulseSidebarProvider {
             this.handleMessage(msg);
         });
         this.ws.on('close', () => {
+            clearInterval(this.pingTimer);
             this.postToWebview({ type: 'disconnected' });
             this.reconnectTimer = setTimeout(() => {
                 const config = vscode.workspace.getConfiguration('teamPulse');
@@ -304,6 +311,7 @@ class TeamPulseSidebarProvider {
     }
     disconnect() {
         clearTimeout(this.reconnectTimer);
+        clearInterval(this.pingTimer);
         this.ws?.close();
         this.ws = undefined;
         this.myId = undefined;

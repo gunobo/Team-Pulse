@@ -18,6 +18,7 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
   private members: Map<string, TeamMember> = new Map();
   private myId?: string;
   private reconnectTimer?: NodeJS.Timeout;
+  private pingTimer?: NodeJS.Timeout;
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -179,6 +180,7 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
     repoName?: string
   ) {
     clearTimeout(this.reconnectTimer);
+    clearInterval(this.pingTimer);
     this.ws = new WS(serverUrl);
 
     this.ws.on('open', () => {
@@ -188,6 +190,10 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
       } else {
         this.sendToServer({ type: 'joinRoom', token, code: joinCode });
       }
+      // 30초마다 ping → Cloudflare idle timeout 방지
+      this.pingTimer = setInterval(() => {
+        this.sendToServer({ type: 'ping' });
+      }, 30000);
     });
 
     this.ws.on('message', (raw: ws_module.RawData) => {
@@ -197,13 +203,14 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
     });
 
     this.ws.on('close', () => {
+      clearInterval(this.pingTimer);
       this.postToWebview({ type: 'disconnected' });
       this.reconnectTimer = setTimeout(() => {
-        const config    = vscode.workspace.getConfiguration('teamPulse');
-        const serverUrl = config.get<string>('serverUrl') ?? 'wss://ws.imjemin.co.kr';
-        const savedCode = this.context.globalState.get<string>('roomCode');
-        const savedToken= this.context.globalState.get<string>('authToken');
-        const savedLogin= this.context.globalState.get<string>('githubLogin');
+        const config     = vscode.workspace.getConfiguration('teamPulse');
+        const serverUrl  = config.get<string>('serverUrl') ?? 'wss://ws.imjemin.co.kr';
+        const savedCode  = this.context.globalState.get<string>('roomCode');
+        const savedToken = this.context.globalState.get<string>('authToken');
+        const savedLogin = this.context.globalState.get<string>('githubLogin');
         if (savedCode && savedToken && savedLogin) {
           this.setupWebSocket(serverUrl, savedLogin, savedToken, false, savedCode);
         }
@@ -281,6 +288,7 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
 
   disconnect() {
     clearTimeout(this.reconnectTimer);
+    clearInterval(this.pingTimer);
     this.ws?.close();
     this.ws      = undefined;
     this.myId    = undefined;
