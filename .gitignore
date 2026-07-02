@@ -6,3 +6,4 @@ agent/
 .claude/
 prototype/
 server/.env
+server/tokens.json

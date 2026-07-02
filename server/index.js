@@ -7,6 +7,7 @@ const PORT         = process.env.PORT        || 4001;
 const CLIENT_ID    = process.env.GITHUB_CLIENT_ID;
 const CLIENT_SECRET= process.env.GITHUB_CLIENT_SECRET;
 const DB_PATH      = './rooms.json';
+const TOKENS_PATH  = './tokens.json';
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
   console.error('❌ GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET 환경변수 필요');
@@ -21,12 +22,30 @@ function loadRooms() {
 function saveRooms(rooms) {
   writeFileSync(DB_PATH, JSON.stringify(rooms, null, 2));
 }
+
+function loadTokens() {
+  if (!existsSync(TOKENS_PATH)) return new Map();
+  try {
+    const obj = JSON.parse(readFileSync(TOKENS_PATH, 'utf-8'));
+    const now = Date.now();
+    const map = new Map();
+    for (const [token, data] of Object.entries(obj)) {
+      if (data.expiresAt > now) map.set(token, data);
+    }
+    return map;
+  } catch { return new Map(); }
+}
+function saveTokens(tokens) {
+  const obj = Object.fromEntries(tokens);
+  writeFileSync(TOKENS_PATH, JSON.stringify(obj, null, 2));
+}
+
 const rooms = loadRooms();
 
 // ── 런타임 상태 ───────────────────────────────────
 const sessions    = {};          // roomCode → Map<clientId, {ws, member}>
 const authPending = new Map();   // state → { token, githubUser, expires }
-const validTokens = new Map();   // token → githubLogin
+const validTokens = loadTokens(); // token → { login, accessToken, expiresAt }
 const rateLimitMap= new Map();   // ip    → { last, fails }
 const MAX_FAILS   = 10000;
 let nextId        = 1;
@@ -114,6 +133,7 @@ const httpServer = createServer(async (req, res) => {
       const token = randomBytes(16).toString('hex');
       const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
       validTokens.set(token, { login: user.login, accessToken: access_token, expiresAt });
+      saveTokens(validTokens);
       authPending.set(state, { token, login: user.login });
 
       console.log(`[인증] ${user.login} ✓`);
