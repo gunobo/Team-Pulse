@@ -275,9 +275,7 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   refresh() {
-    if (this.view) {
-      this.view.webview.html = getSidebarHtml(this.view.webview, this.context.extensionUri);
-    }
+    this.postMembers();
   }
 
   broadcastFileOpen(filePath: string) {

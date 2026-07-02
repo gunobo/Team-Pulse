@@ -156,18 +156,11 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
       vscode.postMessage({ type: 'refresh' });
     }
 
-    // 더미 팀원 데이터 (Phase 2에서 실제 WebSocket 데이터로 교체)
-    const demoMembers = [
-      { id: '1', name: 'Alice', status: 'online',  currentFile: 'src/auth/login.ts' },
-      { id: '2', name: 'Bob',   status: 'away',    currentFile: 'README.md' },
-      { id: '3', name: 'Carol', status: 'offline', currentFile: null },
-    ];
-
     window.addEventListener('message', (event) => {
       const msg = event.data;
       if (msg.type === 'connected') {
         document.getElementById('statusDot').classList.add('connected');
-        renderMembers(demoMembers);
+        renderEmpty();
       } else if (msg.type === 'disconnected') {
         document.getElementById('statusDot').classList.remove('connected');
         renderEmpty();
