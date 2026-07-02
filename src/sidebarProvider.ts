@@ -116,11 +116,6 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
       vscode.window.showInformationMessage('Team Pulse: 레포 목록 불러오는 중...');
       const repos = await this.fetchUserRepos(auth.token);
 
-      if (repos.length === 0) {
-        vscode.window.showErrorMessage('Team Pulse: 레포를 불러올 수 없어요.');
-        return;
-      }
-
       const picked = await vscode.window.showQuickPick(
         [
           { label: '$(circle-slash) 제한 없음', description: '누구든 코드만 있으면 입장', value: '' },
