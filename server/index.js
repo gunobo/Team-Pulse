@@ -476,6 +476,41 @@ const httpServer = createServer(async (req, res) => {
     return;
   }
 
+  // ── 어드민 토큰 취소 ──────────────────────────────
+  if (url.pathname === '/admin/revoke' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    await new Promise(r => req.on('end', r));
+    let pw, login;
+    try { ({ pw, login } = JSON.parse(body)); } catch { pw = ''; }
+    if (pw !== ADMIN_PASSWORD) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '권한 없음' }));
+      return;
+    }
+    let revoked = 0;
+    for (const [token, data] of validTokens.entries()) {
+      if (data.login === login) {
+        validTokens.delete(token);
+        revoked++;
+        // 연결된 WebSocket 세션도 강제 종료
+        for (const [code, session] of Object.entries(sessions)) {
+          for (const [clientId, { ws: clientWs, member }] of session.entries()) {
+            if (member.name === login) {
+              send(clientWs, { type: 'error', message: '관리자에 의해 강제 로그아웃됐어요.', code: 'TOKEN_REVOKED' });
+              clientWs.close();
+            }
+          }
+        }
+      }
+    }
+    saveTokens(validTokens);
+    console.log(`[어드민] ${login} 토큰 취소 (${revoked}개)`);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, revoked }));
+    return;
+  }
+
   // ── 어드민 페이지 ─────────────────────────────────
   if (url.pathname === '/admin') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -515,10 +550,12 @@ const httpServer = createServer(async (req, res) => {
   .room-member{display:flex;align-items:center;gap:6px;padding:5px 10px;background:#1a1a2e;border-radius:8px;font-size:12px}
   .dot{width:7px;height:7px;border-radius:50%}
   .dot.online{background:#22c55e} .dot.away{background:#f59e0b} .dot.offline{background:#6b7280}
-  .tokens{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
-  .token{background:#13131f;border:1px solid #ffffff0f;border-radius:10px;padding:12px 16px}
+  .tokens{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+  .token{background:#13131f;border:1px solid #ffffff0f;border-radius:10px;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
   .token-name{font-size:13px;font-weight:600}
-  .token-exp{font-size:11px;color:#ffffff40;margin-top:3px}
+  .token-exp{font-size:11px;color:#ffffff40}
+  .revoke-btn{padding:5px 10px;background:#ef444415;border:1px solid #ef444440;border-radius:6px;color:#f87171;font-size:11px;font-weight:600;cursor:pointer;width:100%;transition:all .15s}
+  .revoke-btn:hover{background:#ef444430}
   .uptime{font-size:12px;color:#ffffff40}
   .empty{color:#ffffff30;font-size:13px;padding:16px 0}
   .refresh-btn{padding:7px 16px;background:transparent;border:1px solid #ffffff20;border-radius:8px;color:#ffffffcc;font-size:12px;width:auto;margin-bottom:20px}
@@ -566,6 +603,13 @@ function fmtUp(s) {
   const h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
   return h + '시간 ' + m + '분';
 }
+async function revoke(login) {
+  if (!confirm(\`@\${login} 을 강제 로그아웃할까요?\\n현재 연결도 즉시 끊겨요.\`)) return;
+  const r = await fetch('/admin/revoke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pw, login }) });
+  const d = await r.json();
+  if (d.ok) { alert(\`@\${login} 로그아웃 완료 (토큰 \${d.revoked}개 삭제)\`); load(); }
+  else alert('실패: ' + (d.error || '알 수 없는 오류'));
+}
 async function load() {
   const r = await fetch('/admin/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pw }) });
   if (!r.ok) { document.getElementById('err').textContent = '비밀번호가 틀렸어요.'; return; }
@@ -604,6 +648,7 @@ async function load() {
     <div class="token">
       <div class="token-name">@\${t.login}</div>
       <div class="token-exp">만료: \${fmt(t.expiresAt)}</div>
+      <button class="revoke-btn" onclick="revoke('\${t.login}')">강제 로그아웃</button>
     </div>
   \`).join('') : '<p class="empty">인증된 유저가 없어요.</p>';
 }

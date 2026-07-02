@@ -99,7 +99,8 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "package": "npx vsce package --out build/"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
