@@ -8,7 +8,7 @@ function getSidebarHtml(webview, extensionUri) {
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
+    content="default-src 'none'; img-src https://avatars.githubusercontent.com; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Team Pulse</title>
   <style nonce="${nonce}">
@@ -174,8 +174,9 @@ function getSidebarHtml(webview, extensionUri) {
       background: linear-gradient(135deg, #6366f1, #8b5cf6);
       display: flex; align-items: center; justify-content: center;
       font-size: 11px; font-weight: 700; color: #fff;
-      flex-shrink: 0; position: relative;
+      flex-shrink: 0; position: relative; overflow: hidden;
     }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
     .avatar-badge {
       position: absolute; bottom: -1px; right: -1px;
       width: 8px; height: 8px; border-radius: 50%;
@@ -186,6 +187,7 @@ function getSidebarHtml(webview, extensionUri) {
     .member-name { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .member-file { font-size: 10px; color: var(--vscode-descriptionForeground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
     .member-git { font-size: 10px; color: #f59e0b; margin-top: 2px; }
+    .card-arrow { font-size: 9px; color: var(--vscode-descriptionForeground); flex-shrink: 0; }
 
     .member-detail {
       display: none; margin: 0 6px 4px 40px;
@@ -441,49 +443,58 @@ function getSidebarHtml(webview, extensionUri) {
       document.getElementById('memberList').innerHTML =
         online.map(memberCard).join('') +
         (offline.length ? '<div class="section-label" style="margin-top:8px">Offline — ' + offline.length + '</div>' + offline.map(memberCard).join('') : '');
+      attachCardListeners();
     }
 
     const openDetails = new Set();
 
     function memberCard(m) {
-      const initial = (m.name || '?')[0].toUpperCase();
       const fileLabel = m.file ? m.file.split('/').pop() : '—';
       const hasGit = m.modifiedFiles && m.modifiedFiles.length > 0;
-      const gitLabel = hasGit ? \`✏ \${m.modifiedFiles.length}개 수정 중\` : '';
       const isOpen = openDetails.has(m.id);
+      const avatarUrl = \`https://avatars.githubusercontent.com/\${encodeURIComponent(m.name)}?s=52\`;
 
       const detailHtml = \`<div class="member-detail \${isOpen ? 'open' : ''}" id="detail-\${m.id}">
         <div class="member-detail-title">수정 중인 파일</div>
         \${hasGit
           ? m.modifiedFiles.map(f => \`<div class="member-detail-file">\${f.split('/').pop()}</div>\`).join('')
-          : '<div class="member-detail-empty">수정 중인 파일 없음</div>'
+          : '<div class="member-detail-empty">변경 없음</div>'
         }
       </div>\`;
 
       return \`<div class="member-card" data-id="\${m.id}">
-        <div class="avatar">\${initial}<div class="avatar-badge badge-\${m.status}"></div></div>
+        <div class="avatar">
+          <img src="\${avatarUrl}" alt="\${m.name}" onerror="this.style.display='none'">
+          <div class="avatar-badge badge-\${m.status}"></div>
+        </div>
         <div class="member-info">
           <div class="member-name">\${m.name}</div>
           <div class="member-file">\${fileLabel}</div>
-          \${gitLabel ? \`<div class="member-git">\${gitLabel}</div>\` : ''}
+          \${hasGit ? \`<div class="member-git">✏ \${m.modifiedFiles.length}개 수정 중</div>\` : ''}
         </div>
+        <span class="card-arrow">\${isOpen ? '▾' : '▸'}</span>
       </div>\${detailHtml}\`;
     }
 
-    document.getElementById('memberList').addEventListener('click', (e) => {
-      const card = e.target.closest('.member-card');
-      if (!card) return;
-      const id = card.dataset.id;
-      const detail = document.getElementById('detail-' + id);
-      if (!detail) return;
-      if (openDetails.has(id)) {
-        openDetails.delete(id);
-        detail.classList.remove('open');
-      } else {
-        openDetails.add(id);
-        detail.classList.add('open');
-      }
-    });
+    function attachCardListeners() {
+      document.querySelectorAll('.member-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const id = card.dataset.id;
+          const detail = document.getElementById('detail-' + id);
+          const arrow = card.querySelector('.card-arrow');
+          if (!detail) return;
+          if (openDetails.has(id)) {
+            openDetails.delete(id);
+            detail.classList.remove('open');
+            if (arrow) arrow.textContent = '▸';
+          } else {
+            openDetails.add(id);
+            detail.classList.add('open');
+            if (arrow) arrow.textContent = '▾';
+          }
+        });
+      });
+    }
 
     // 버튼 이벤트 바인딩
     document.getElementById('btn-login').addEventListener('click', doLogin);

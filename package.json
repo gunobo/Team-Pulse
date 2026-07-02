@@ -2,7 +2,7 @@
   "name": "teamPulse",
   "displayName": "Team Pulse by IMJEMIN",
   "description": "Real-time team collaboration activity monitor for VS Code",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "publisher": "IMJEMIN",
   "repository": {
     "type": "git",
