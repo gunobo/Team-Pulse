@@ -35,14 +35,22 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  private async getAuthToken(): Promise<{ token: string; login: string } | undefined> {
+  private async fetchUserRepos(authToken: string): Promise<string[]> {
+    const serverBase = 'https://ws.imjemin.co.kr';
+    const res  = await fetch(`${serverBase}/auth/repos?token=${authToken}`);
+    const data = await res.json() as any;
+    return data.repos ?? [];
+  }
+
+  private async getAuthToken(roomCode?: string): Promise<{ token: string; login: string } | undefined> {
     const saved = this.context.globalState.get<string>('authToken');
     const login = this.context.globalState.get<string>('githubLogin');
     if (saved && login) return { token: saved, login };
 
     const serverBase = 'https://ws.imjemin.co.kr';
     const state      = require('crypto').randomBytes(8).toString('hex');
-    const oauthUrl   = `https://github.com/login/oauth/authorize?client_id=Ov23li54euhr9T1jQyBX&scope=read:org&state=${state}`;
+    const roomParam  = roomCode ? `&roomCode=${roomCode}` : '';
+    const oauthUrl   = `https://github.com/login/oauth/authorize?client_id=Ov23li54euhr9T1jQyBX&scope=repo&state=${state}${roomParam}`;
 
     // 브라우저 열기
     await vscode.env.openExternal(vscode.Uri.parse(oauthUrl));
@@ -101,11 +109,32 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
     let joinCode: string | undefined;
     let roomName: string | undefined;
 
+    let repoName: string | undefined;
+
     if (action.value === 'create') {
+      // 방장 레포 목록 가져오기
+      vscode.window.showInformationMessage('Team Pulse: 레포 목록 불러오는 중...');
+      const repos = await this.fetchUserRepos(auth.token);
+
+      if (repos.length === 0) {
+        vscode.window.showErrorMessage('Team Pulse: 레포를 불러올 수 없어요.');
+        return;
+      }
+
+      const picked = await vscode.window.showQuickPick(
+        [
+          { label: '$(circle-slash) 제한 없음', description: '누구든 코드만 있으면 입장', value: '' },
+          ...repos.map(r => ({ label: `$(repo) ${r}`, description: `${r} collaborator만 입장`, value: r })),
+        ],
+        { title: '방과 연결할 GitHub 레포 선택', placeHolder: '레포를 선택하면 해당 collaborator만 입장 가능', ignoreFocusOut: true }
+      );
+      if (picked === undefined) return;
+      repoName = picked.value;
+
       roomName = await vscode.window.showInputBox({
         title: '방 이름',
         prompt: '팀원들에게 보여질 방 이름을 입력하세요',
-        placeHolder: '예: bssm-meal 팀',
+        placeHolder: repoName ? repoName.split('/')[1] : '우리 팀',
         ignoreFocusOut: true,
       });
       if (roomName === undefined) return;
@@ -123,7 +152,7 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
       joinCode = savedCode;
     }
 
-    this.setupWebSocket(serverUrl, username, auth.token, action.value === 'create', joinCode, roomName);
+    this.setupWebSocket(serverUrl, username, auth.token, action.value === 'create', joinCode, roomName, repoName);
   }
 
   private setupWebSocket(
@@ -132,7 +161,8 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
     token: string,
     isCreate: boolean,
     joinCode?: string,
-    roomName?: string
+    roomName?: string,
+    repoName?: string
   ) {
     clearTimeout(this.reconnectTimer);
     this.ws = new WS(serverUrl);
@@ -140,7 +170,7 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
     this.ws.on('open', () => {
       this.postToWebview({ type: 'connecting' });
       if (isCreate) {
-        this.sendToServer({ type: 'createRoom', token, roomName: roomName || `${username}의 방` });
+        this.sendToServer({ type: 'createRoom', token, roomName: roomName || `${username}의 방`, repo: repoName || null });
       } else {
         this.sendToServer({ type: 'joinRoom', token, code: joinCode });
       }
