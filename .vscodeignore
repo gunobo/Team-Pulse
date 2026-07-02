@@ -11,5 +11,6 @@ node_modules/eslint/**
 node_modules/@types/**
 .gitignore
 tsconfig.json
+out/**
 **/*.map
 **/.env

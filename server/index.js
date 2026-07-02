@@ -207,6 +207,9 @@ const httpServer = createServer(async (req, res) => {
   .logo{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:700}
   .logo-icon{width:36px;height:36px;background:#7c3aed;border-radius:10px;display:flex;align-items:center;justify-content:center}
   .logo-icon svg{width:22px;height:22px}
+  nav .nav-links{display:flex;align-items:center;gap:8px}
+  nav a.link{padding:8px 14px;font-size:14px;color:#ffffff80;transition:color .15s}
+  nav a.link:hover{color:#fff}
   nav a.btn{padding:8px 18px;background:#7c3aed;border-radius:8px;font-size:14px;font-weight:600;transition:opacity .15s}
   nav a.btn:hover{opacity:.85}
   .hero{text-align:center;padding:100px 24px 80px}
@@ -259,7 +262,11 @@ const httpServer = createServer(async (req, res) => {
     </div>
     Team Pulse
   </div>
-  <a href="https://marketplace.visualstudio.com/items?itemName=IMJEMIN.teamPulse" class="btn" target="_blank">설치하기</a>
+  <div class="nav-links">
+    <a href="/download" class="link">다운로드</a>
+    <a href="https://github.com/gunobo/Team-Pulse" class="link" target="_blank">GitHub</a>
+    <a href="https://marketplace.visualstudio.com/items?itemName=IMJEMIN.teamPulse" class="btn" target="_blank">설치하기</a>
+  </div>
 </nav>
 
 <section class="hero">
@@ -303,6 +310,119 @@ const httpServer = createServer(async (req, res) => {
     <a href="https://marketplace.visualstudio.com/items?itemName=IMJEMIN.teamPulse" class="primary" target="_blank">지금 설치하기 →</a>
   </div>
 </section>
+
+<footer>
+  <p>Made by <a href="https://github.com/gunobo" target="_blank">IMJEMIN</a> · <a href="https://github.com/gunobo/Team-Pulse" target="_blank">GitHub</a> · MIT License</p>
+</footer>
+</body>
+</html>`);
+    return;
+  }
+
+  // ── 다운로드 페이지 ───────────────────────────────
+  if (url.pathname === '/download') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team Pulse 다운로드</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0d0d14;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+  a{color:inherit;text-decoration:none}
+  nav{display:flex;align-items:center;justify-content:space-between;padding:20px 48px;border-bottom:1px solid #ffffff0f}
+  .logo{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:700}
+  .logo-icon{width:36px;height:36px;background:#7c3aed;border-radius:10px;display:flex;align-items:center;justify-content:center}
+  .nav-links{display:flex;align-items:center;gap:8px}
+  .nav-link{padding:8px 14px;font-size:14px;color:#ffffff80;transition:color .15s}
+  .nav-link:hover{color:#fff}
+  .btn{padding:8px 18px;background:#7c3aed;border-radius:8px;font-size:14px;font-weight:600;transition:opacity .15s}
+  .btn:hover{opacity:.85}
+  .hero{text-align:center;padding:80px 24px 60px}
+  .badge{display:inline-block;padding:4px 14px;background:#7c3aed22;border:1px solid #7c3aed55;border-radius:99px;font-size:13px;color:#a78bfa;margin-bottom:20px}
+  h1{font-size:clamp(28px,5vw,52px);font-weight:800;letter-spacing:-1.5px;margin-bottom:12px}
+  .sub{font-size:16px;color:#ffffff60;margin-bottom:0}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;max-width:860px;margin:52px auto;padding:0 24px}
+  .card{background:#13131f;border:1px solid #ffffff0f;border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:16px}
+  .card-icon{font-size:32px}
+  .card h2{font-size:18px;font-weight:700}
+  .card p{font-size:13px;color:#ffffff50;line-height:1.6;flex:1}
+  .card a{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:12px;font-size:14px;font-weight:700;transition:all .15s;text-align:center}
+  .card a.primary{background:#7c3aed;color:#fff}
+  .card a.primary:hover{background:#6d28d9}
+  .card a.secondary{border:1px solid #ffffff15;color:#ffffffcc}
+  .card a.secondary:hover{border-color:#ffffff30;background:#ffffff08}
+  .card .tag{display:inline-block;padding:3px 10px;background:#22c55e22;border:1px solid #22c55e44;border-radius:99px;font-size:11px;color:#4ade80;margin-bottom:4px;width:fit-content}
+  .card .tag.beta{background:#f59e0b22;border-color:#f59e0b44;color:#fbbf24}
+  .steps{max-width:600px;margin:0 auto 80px;padding:0 24px}
+  .steps h2{font-size:20px;font-weight:700;margin-bottom:20px;text-align:center}
+  .step{display:flex;gap:16px;margin-bottom:20px}
+  .step-num{width:32px;height:32px;border-radius:50%;background:#7c3aed22;border:1px solid #7c3aed55;color:#a78bfa;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+  .step-body h3{font-size:14px;font-weight:700;margin-bottom:4px}
+  .step-body p{font-size:13px;color:#ffffff50;line-height:1.5}
+  footer{text-align:center;padding:24px;border-top:1px solid #ffffff0f;color:#ffffff30;font-size:13px}
+  footer a{color:#7c3aed}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="logo">
+    <div class="logo-icon">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><polyline points="1,11 4,11 6.5,4 9,18 11,7 13,14 15.5,8 18,11 21,11" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    Team Pulse
+  </a>
+  <div class="nav-links">
+    <a href="/download" class="nav-link" style="color:#fff">다운로드</a>
+    <a href="https://github.com/gunobo/Team-Pulse" class="nav-link" target="_blank">GitHub</a>
+    <a href="https://marketplace.visualstudio.com/items?itemName=IMJEMIN.teamPulse" class="btn" target="_blank">설치하기</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="badge">v0.1.3 최신 버전</div>
+  <h1>Team Pulse 다운로드</h1>
+  <p class="sub">VS Code 마켓플레이스에서 바로 설치하거나 .vsix 파일로 직접 설치할 수 있어요.</p>
+</section>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-icon">🛒</div>
+    <span class="tag">추천</span>
+    <h2>VS Code 마켓플레이스</h2>
+    <p>가장 쉬운 방법이에요. VS Code 내 확장 탭에서 검색하거나 아래 버튼으로 바로 설치할 수 있어요. 업데이트도 자동으로 받을 수 있어요.</p>
+    <a href="https://marketplace.visualstudio.com/items?itemName=IMJEMIN.teamPulse" class="primary" target="_blank">마켓플레이스에서 설치</a>
+  </div>
+  <div class="card">
+    <div class="card-icon">📦</div>
+    <span class="tag beta">수동 설치</span>
+    <h2>VSIX 파일 직접 설치</h2>
+    <p>인터넷 없는 환경이나 특정 버전이 필요할 때 사용해요. GitHub Releases에서 .vsix 파일을 받아 VS Code에 직접 설치할 수 있어요.</p>
+    <a href="https://github.com/gunobo/Team-Pulse/releases/latest" class="secondary" target="_blank">GitHub Releases →</a>
+  </div>
+</div>
+
+<div class="steps">
+  <h2>마켓플레이스 설치 방법</h2>
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body"><h3>확장 탭 열기</h3><p>VS Code 왼쪽 사이드바에서 확장 아이콘을 클릭하거나 <code style="background:#ffffff10;padding:2px 6px;border-radius:4px;font-size:12px">Ctrl+Shift+X</code> 를 눌러요.</p></div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body"><h3>Team Pulse 검색</h3><p>검색창에 <code style="background:#ffffff10;padding:2px 6px;border-radius:4px;font-size:12px">Team Pulse IMJEMIN</code> 을 입력해요.</p></div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body"><h3>설치 버튼 클릭</h3><p>Team Pulse by IMJEMIN을 찾아 설치 버튼을 눌러요.</p></div>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body"><h3>Connect → GitHub 로그인</h3><p>사이드바 아이콘 클릭 → Connect → GitHub 로그인 후 방 코드로 팀에 합류해요.</p></div>
+  </div>
+</div>
 
 <footer>
   <p>Made by <a href="https://github.com/gunobo" target="_blank">IMJEMIN</a> · <a href="https://github.com/gunobo/Team-Pulse" target="_blank">GitHub</a> · MIT License</p>
