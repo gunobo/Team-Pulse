@@ -50,7 +50,7 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
     const serverBase = 'https://ws.imjemin.co.kr';
     const state      = require('crypto').randomBytes(8).toString('hex');
     const roomParam  = roomCode ? `&roomCode=${roomCode}` : '';
-    const oauthUrl   = `https://github.com/login/oauth/authorize?client_id=Ov23li54euhr9T1jQyBX&scope=repo&state=${state}${roomParam}`;
+    const oauthUrl   = `https://github.com/login/oauth/authorize?client_id=Ov23li54euhr9T1jQyBX&scope=repo,read:org&state=${state}${roomParam}`;
 
     // 브라우저 열기
     await vscode.env.openExternal(vscode.Uri.parse(oauthUrl));
