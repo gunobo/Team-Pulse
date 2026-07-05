@@ -848,8 +848,9 @@ wss.on('connection', (ws, req) => {
         break;
       }
       case 'reviewRequest': {
+        const me = session.get(clientId);
         const target = [...session.values()].find(c => c.member.name === msg.to);
-        if (target) send(target.ws, { type: 'reviewRequested', from: githubLogin, file: msg.file });
+        if (target && me) send(target.ws, { type: 'reviewRequested', from: me.member.name, file: msg.file });
         break;
       }
       case 'ping': break; // keepalive, no-op
