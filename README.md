@@ -36,6 +36,22 @@ Real-time team activity monitor for VS Code. See what files your teammates are w
 | `teamPulse.serverUrl` | `wss://ws.imjemin.co.kr` | WebSocket server URL |
 | `teamPulse.autoConnect` | `true` | Auto-connect on VS Code startup |
 
+## Changelog
+
+### v0.3.0
+- **Branch indicator** — see which git branch each teammate is working on
+- **Custom status message** — set a message like "lunch 🍜" or "in review" visible to teammates
+- **Same-file conflict warning** — ⚠️ badge appears when a teammate opens the same file as you
+- **Commit notifications** — teammates get notified when you commit (shows commit message)
+- **Review request button** — expand a member card to send a code review request
+
+### v0.2.4
+- Fixed ping-pong reconnect loop when multiple VS Code instances use the same GitHub account
+
+### v0.2.3
+- Added GitHub profile avatars
+- Fixed member card click handlers
+
 ## Privacy
 
 Only workspace-relative file paths are shared with teammates (e.g. `src/index.ts`, not `/Users/yourname/...`).

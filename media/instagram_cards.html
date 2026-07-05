@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team Pulse — Instagram Cards</title>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Figtree', -apple-system, sans-serif;
+  background: #08080f;
+  padding: 80px 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 60px;
+}
+.page-label {
+  color: #ffffff20;
+  font-size: 24px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  align-self: flex-start;
+  padding-left: 4px;
+}
+.row {
+  display: flex;
+  gap: 40px;
+  align-items: flex-start;
+}
+.card-label {
+  color: #ffffff20;
+  font-size: 22px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+/* 카드 공통 */
+.card {
+  width: 1080px;
+  height: 1080px;
+  border-radius: 70px;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid #ffffff08;
+}
+.chip {
+  position: absolute;
+  top: 70px; left: 70px;
+  border-radius: 99px;
+  padding: 10px 32px;
+  font-size: 29px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  z-index: 2;
+}
+.num {
+  position: absolute;
+  top: 76px; right: 70px;
+  font-size: 29px;
+  color: #ffffff22;
+  font-weight: 600;
+  letter-spacing: 1px;
+  z-index: 2;
+}
+.glow {
+  position: absolute;
+  border-radius: 50%;
+  z-index: 0;
+}
+.body {
+  position: absolute;
+  bottom: 83px; left: 76px; right: 76px;
+  z-index: 2;
+}
+
+/* ── 01 훅 ── */
+.c1 { background: #0a0a12; }
+.c1 .glow { width: 826px; height: 826px; background: radial-gradient(circle, #5b5ef418 0%, transparent 70%); top: -190px; right: -190px; }
+.c1 .chip { background: #5b5ef415; border: 1px solid #5b5ef440; color: #818cf8; }
+.c1 .deco { position: absolute; bottom: 470px; left: 76px; width: 114px; height: 6px; background: #5b5ef4; border-radius: 6px; z-index: 2; }
+.c1 .pre { font-size: 35px; color: #ffffff40; margin-bottom: 25px; line-height: 1.6; }
+.c1 .heading { font-size: 95px; font-weight: 900; color: #fff; line-height: 1.1; letter-spacing: -3px; }
+.c1 .heading em { font-style: normal; color: #818cf8; }
+
+/* ── 02 배포됨 ── */
+.c2 { background: #0b0b18; }
+.c2 .glow { width: 635px; height: 635px; background: radial-gradient(circle, #6366f118 0%, transparent 70%); top: -127px; left: -127px; }
+.c2 .chip { background: #6366f115; border: 1px solid #6366f140; color: #818cf8; }
+.c2 .photo-area {
+  position: absolute;
+  top: 178px; left: 64px; right: 64px;
+  height: 604px;
+  border-radius: 38px;
+  background: #16152a;
+  border: 1px solid #6366f125;
+  z-index: 2;
+  overflow: hidden;
+}
+.c2 .photo-area img {
+  width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block;
+}
+.c2 .badge {
+  position: absolute;
+  bottom: 222px; left: 76px;
+  background: #22c55e18;
+  border: 1px solid #22c55e40;
+  border-radius: 99px;
+  padding: 13px 38px;
+  font-size: 32px;
+  font-weight: 700;
+  color: #4ade80;
+  z-index: 2;
+}
+.c2 .sub { font-size: 35px; color: #ffffff50; margin-bottom: 6px; }
+.c2 .label { font-size: 51px; font-weight: 800; color: #fff; }
+
+/* ── 03 로그인 ── */
+.c3 { background: #0c0b18; }
+.c3 .glow { width: 635px; height: 635px; background: radial-gradient(circle, #8b5cf618 0%, transparent 70%); bottom: -127px; right: -127px; }
+.c3 .chip { background: #8b5cf615; border: 1px solid #8b5cf640; color: #a78bfa; }
+.c3 .step-area {
+  position: absolute;
+  top: 178px; left: 64px; right: 64px;
+  z-index: 2;
+}
+.c3 .step-heading { font-size: 41px; font-weight: 800; color: #fff; margin-bottom: 44px; }
+.c3 .step { display: flex; align-items: center; gap: 38px; margin-bottom: 38px; }
+.c3 .s-badge {
+  width: 89px; height: 89px; border-radius: 25px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 38px; font-weight: 900; color: #fff; flex-shrink: 0;
+}
+.c3 .s-text { font-size: 37px; font-weight: 700; color: #ffffffcc; line-height: 1.4; }
+.c3 .s-sub { font-size: 30px; color: #ffffff40; margin-top: 3px; }
+.c3 .arrow { color: #8b5cf660; font-size: 32px; text-align: center; margin: 6px 0 6px 25px; }
+.c3 .photo-small {
+  position: absolute;
+  bottom: 83px; right: 64px;
+  width: 318px; height: 350px;
+  border-radius: 32px;
+  background: #1a1530;
+  border: 1px solid #8b5cf630;
+  z-index: 2;
+  overflow: hidden;
+}
+.c3 .photo-small img {
+  width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block;
+}
+
+/* ── 04 방 입장 ── */
+.c4 { background: #080d10; }
+.c4 .glow { width: 699px; height: 699px; background: radial-gradient(circle, #10b98118 0%, transparent 70%); top: -159px; left: -159px; }
+.c4 .chip { background: #10b98115; border: 1px solid #10b98140; color: #34d399; }
+.c4 .photo-area {
+  position: absolute;
+  top: 178px; right: 64px;
+  width: 381px; height: 588px;
+  border-radius: 38px;
+  background: #0d1a14;
+  border: 1px solid #10b98125;
+  z-index: 2;
+  overflow: hidden;
+}
+.c4 .photo-area img {
+  width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block;
+}
+.c4 .body { right: 492px; }
+.c4 .label { font-size: 32px; color: #ffffff30; margin-bottom: 38px; text-transform: uppercase; letter-spacing: 3px; font-weight: 600; }
+.c4 .feat { display: flex; align-items: flex-start; gap: 25px; margin-bottom: 38px; }
+.c4 .feat-bar { width: 10px; border-radius: 6px; flex-shrink: 0; margin-top: 6px; }
+.c4 .feat-text { font-size: 35px; color: #ffffffcc; font-weight: 600; line-height: 1.4; }
+.c4 .feat-sub { font-size: 29px; color: #ffffff40; margin-top: 6px; }
+
+/* ── 05 협업 효과 ── */
+.c5 { background: #0f0a0a; }
+.c5 .glow { width: 699px; height: 699px; background: radial-gradient(circle, #ef444418 0%, transparent 70%); bottom: -159px; right: -159px; }
+.c5 .chip { background: #ef444415; border: 1px solid #ef444440; color: #f87171; }
+.c5 .cards-area {
+  position: absolute;
+  top: 178px; left: 64px; right: 64px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+.c5 .benefit {
+  background: #1a1010;
+  border: 1px solid #ef444420;
+  border-left: 10px solid;
+  border-radius: 0 25px 25px 0;
+  padding: 32px 44px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+.c5 .b-icon { font-size: 51px; flex-shrink: 0; }
+.c5 .b-text { font-size: 35px; font-weight: 700; color: #fff; }
+.c5 .b-sub { font-size: 29px; color: #ffffff45; margin-top: 6px; }
+.c5 .vs { font-size: 29px; font-weight: 800; color: #ffffff30; text-align: center; }
+
+/* ── 06 설치 방법 ── */
+.c7 { background: #0a0f0a; }
+.c7 .glow { width: 635px; height: 635px; background: radial-gradient(circle, #22c55e18 0%, transparent 70%); top: -127px; right: -127px; }
+.c7 .chip { background: #22c55e15; border: 1px solid #22c55e40; color: #4ade80; }
+.c7 .install-area {
+  position: absolute;
+  top: 178px; left: 64px; right: 64px;
+  z-index: 2;
+}
+.c7 .i-title { font-size: 44px; font-weight: 900; color: #fff; margin-bottom: 51px; }
+.c7 .i-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 38px;
+  margin-bottom: 44px;
+}
+.c7 .i-num {
+  width: 76px; height: 76px;
+  border-radius: 50%;
+  background: #22c55e;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 35px; font-weight: 900; color: #fff;
+  flex-shrink: 0;
+}
+.c7 .i-text { font-size: 37px; font-weight: 700; color: #ffffffcc; line-height: 1.4; }
+.c7 .i-sub { font-size: 30px; color: #ffffff40; margin-top: 6px; }
+.c7 .i-key {
+  display: inline-block;
+  background: #1e2d1e;
+  border: 1px solid #22c55e30;
+  border-radius: 16px;
+  padding: 3px 22px;
+  font-size: 29px;
+  font-weight: 700;
+  color: #4ade80;
+  font-family: monospace;
+  letter-spacing: .3px;
+}
+
+/* ── 07 CTA ── */
+.c6 { background: #5b5ef4; border-color: #ffffff15; }
+.c6 .ring1 { position: absolute; top: -190px; right: -190px; width: 699px; height: 699px; border-radius: 50%; border: 1px solid #ffffff10; z-index: 1; }
+.c6 .ring2 { position: absolute; top: -64px; right: -64px; width: 413px; height: 413px; border-radius: 50%; border: 1px solid #ffffff18; z-index: 1; }
+.c6 .chip { background: #ffffff15; border: 1px solid #ffffff25; color: #ffffffcc; }
+.c6 .num { color: #ffffff35; }
+.c6 .sub { font-size: 38px; color: #ffffff75; margin-bottom: 19px; }
+.c6 .heading { font-size: 89px; font-weight: 900; color: #fff; line-height: 1.1; letter-spacing: -3px; margin-bottom: 25px; }
+.c6 .desc { font-size: 35px; color: #ffffff80; margin-bottom: 57px; line-height: 1.5; }
+.c6 .cta { display: inline-flex; align-items: center; gap: 19px; background: #fff; border-radius: 99px; padding: 29px 57px; font-size: 35px; font-weight: 800; color: #5b5ef4; }
+</style>
+</head>
+<body>
+
+<div class="page-label">Team Pulse — Instagram Cards (7장)</div>
+
+<!-- 01 + 02 -->
+<div class="row">
+  <div>
+    <div class="card-label">01 / 06 — 훅</div>
+    <div class="card c1">
+      <div class="glow"></div>
+      <div class="chip">Team Pulse</div>
+      <div class="num">01 / 06</div>
+      <div class="deco"></div>
+      <div class="body">
+        <div class="pre">팀 프로젝트 하면서<br>한 번쯤 이런 생각, 해봤죠?</div>
+        <div class="heading">팀원이 지금<br><em>뭘 하는지</em><br>보고싶다</div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="card-label">02 / 06 — 마켓플레이스 배포</div>
+    <div class="card c2">
+      <div class="glow"></div>
+      <div class="chip">실제 배포됨</div>
+      <div class="num">02 / 06</div>
+      <!-- 📸 마켓플레이스 스크린샷 -->
+      <div class="photo-area"><img src="스크린샷 2026-07-05 오후 2.31.09.png" alt=""></div>
+      <div class="badge">✓ 마켓플레이스 배포 완료</div>
+      <div class="body" style="bottom: 22px;">
+        <div class="sub">VS Code 확장 탭에서 바로 검색</div>
+        <div class="label" style="font-size:15px; font-weight:800; color:#fff;">실제로 배포되어 있어요!</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 03 + 04 -->
+<div class="row">
+  <div>
+    <div class="card-label">03 / 06 — 로그인 & 방 만들기</div>
+    <div class="card c3">
+      <div class="glow"></div>
+      <div class="chip">시작하기</div>
+      <div class="num">03 / 06</div>
+      <div class="step-area">
+        <div class="step-heading">로그인하면 바로 시작!</div>
+        <div class="step">
+          <div class="s-badge" style="background:#6366f1">1</div>
+          <div>
+            <div class="s-text">GitHub으로 로그인</div>
+            <div class="s-sub">클릭 한 번으로 인증 완료</div>
+          </div>
+        </div>
+        <div class="arrow">↓</div>
+        <div class="step">
+          <div class="s-badge" style="background:#8b5cf6">2</div>
+          <div>
+            <div class="s-text">새 방 만들기 또는 참가</div>
+            <div class="s-sub">8자리 초대 코드로 팀 연결</div>
+          </div>
+        </div>
+        <div class="arrow">↓</div>
+        <div class="step">
+          <div class="s-badge" style="background:#10b981">3</div>
+          <div>
+            <div class="s-text">팀원과 실시간 연결!</div>
+            <div class="s-sub">바로 활동 공유 시작</div>
+          </div>
+        </div>
+      </div>
+      <!-- 📸 홈 화면 스크린샷 -->
+      <div class="photo-small"><img src="스크린샷 2026-07-05 오후 2.32.49.png" alt=""></div>
+    </div>
+  </div>
+  <div>
+    <div class="card-label">04 / 06 — 방 입장 후 화면</div>
+    <div class="card c4">
+      <div class="glow"></div>
+      <div class="chip">협업 화면</div>
+      <div class="num">04 / 06</div>
+      <!-- 📸 연결됨 화면 스크린샷 -->
+      <div class="photo-area"><img src="스크린샷 2026-07-05 오후 2.33.15.png" alt=""></div>
+      <div class="body">
+        <div class="label">방 입장 후 바로 확인</div>
+        <div class="feat">
+          <div class="feat-bar" style="height:30px; background:#6366f1"></div>
+          <div><div class="feat-text">팀원 현재<br>작업 파일</div><div class="feat-sub">실시간 반영</div></div>
+        </div>
+        <div class="feat">
+          <div class="feat-bar" style="height:30px; background:#a78bfa"></div>
+          <div><div class="feat-text">수정 중인<br>파일 목록</div><div class="feat-sub">git 기준</div></div>
+        </div>
+        <div class="feat">
+          <div class="feat-bar" style="height:20px; background:#34d399"></div>
+          <div><div class="feat-text">온라인 상태</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 05 + 06 -->
+<div class="row">
+  <div>
+    <div class="card-label">05 / 07 — 협업 효과</div>
+    <div class="card c5">
+      <div class="glow"></div>
+      <div class="chip">이런 점이 좋아요</div>
+      <div class="num">05 / 07</div>
+      <div class="cards-area">
+        <div class="benefit" style="border-left-color:#6366f1">
+          <div class="b-icon">⚡</div>
+          <div>
+            <div class="b-text">파일 충돌 예방</div>
+            <div class="b-sub">같은 파일 건드는지 미리 확인</div>
+          </div>
+        </div>
+        <div class="vs">vs 메신저로 "지금 뭐 해?" 물어보기</div>
+        <div class="benefit" style="border-left-color:#10b981">
+          <div class="b-icon">👀</div>
+          <div>
+            <div class="b-text">진행상황 한눈에</div>
+            <div class="b-sub">팀원이 어디쯤 작업 중인지 파악</div>
+          </div>
+        </div>
+        <div class="vs">vs PR 올릴 때까지 기다리기</div>
+        <div class="benefit" style="border-left-color:#f59e0b">
+          <div class="b-icon">🔔</div>
+          <div>
+            <div class="b-text">온라인 상태 확인</div>
+            <div class="b-sub">자리에 있는지 바로 파악 가능</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="card-label">06 / 07 — VS Code 설치 방법</div>
+    <div class="card c7">
+      <div class="glow"></div>
+      <div class="chip">설치 방법</div>
+      <div class="num">06 / 07</div>
+      <div class="install-area">
+        <div class="i-title">VS Code에서 바로 설치하기</div>
+        <div class="i-step">
+          <div class="i-num">1</div>
+          <div>
+            <div class="i-text">확장 탭 열기</div>
+            <div class="i-sub">왼쪽 사이드바 확장 아이콘 클릭 또는<br><span class="i-key">Ctrl+Shift+X</span> <span style="color:#ffffff30;font-size:9px">( Mac: ⌘⇧X )</span></div>
+          </div>
+        </div>
+        <div class="i-step">
+          <div class="i-num">2</div>
+          <div>
+            <div class="i-text">검색창에 입력</div>
+            <div class="i-sub"><span class="i-key">Team Pulse By IMJEMIN</span></div>
+          </div>
+        </div>
+        <div class="i-step">
+          <div class="i-num">3</div>
+          <div>
+            <div class="i-text">Install 버튼 클릭</div>
+            <div class="i-sub">설치 완료 후 사이드바에 아이콘 생성</div>
+          </div>
+        </div>
+        <div class="i-step">
+          <div class="i-num">4</div>
+          <div>
+            <div class="i-text">GitHub 로그인 → 팀과 연결!</div>
+            <div class="i-sub">초대 코드 공유하면 바로 시작</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 07 CTA (단독 행) -->
+<div class="row">
+  <div>
+    <div class="card-label">07 / 07 — CTA</div>
+    <div class="card c6">
+      <div class="ring1"></div>
+      <div class="ring2"></div>
+      <div class="chip">지금 바로</div>
+      <div class="num">07 / 07</div>
+      <div class="body" style="z-index:2">
+        <div class="sub">무료 · GitHub 로그인</div>
+        <div class="heading">지금 바로<br>설치해보세요</div>
+        <div class="desc">VS Code 확장 탭에서 검색하거나<br>프로필 링크에서 바로 설치!</div>
+        <div class="cta">Team Pulse By IMJEMIN 검색 →</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

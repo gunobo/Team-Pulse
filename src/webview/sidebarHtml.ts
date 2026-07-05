@@ -187,6 +187,9 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
     .member-name { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .member-file { font-size: 10px; color: var(--vscode-descriptionForeground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
     .member-git { font-size: 10px; color: #f59e0b; margin-top: 2px; }
+    .member-status-msg { font-size: 10px; color: var(--vscode-descriptionForeground); margin-top: 1px; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .member-branch { font-size: 9px; color: #6366f1; background: #6366f115; border: 1px solid #6366f130; border-radius: 3px; padding: 0px 4px; margin-left: 4px; font-family: monospace; flex-shrink: 0; }
+    .conflict-badge { font-size: 9px; color: #ef4444; margin-left: 4px; flex-shrink: 0; }
     .card-arrow { font-size: 9px; color: var(--vscode-descriptionForeground); flex-shrink: 0; }
 
     .member-detail {
@@ -203,6 +206,32 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
     }
     .member-detail-file::before { content: '✏'; font-size: 9px; flex-shrink: 0; }
     .member-detail-empty { font-size: 10px; color: var(--vscode-descriptionForeground); }
+    .review-btn {
+      margin-top: 6px; width: 100%; padding: 4px 8px;
+      background: #6366f115; border: 1px solid #6366f130;
+      border-radius: 4px; color: #818cf8; font-size: 10px;
+      font-weight: 600; cursor: pointer; font-family: var(--vscode-font-family);
+    }
+    .review-btn:hover { background: #6366f125; }
+
+    .status-msg-wrap { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+    .status-msg-input {
+      flex: 1; padding: 4px 8px;
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      border: 1px solid var(--vscode-input-border, #ffffff20);
+      border-radius: 4px; font-size: 11px;
+      font-family: var(--vscode-font-family); outline: none;
+    }
+    .status-msg-input:focus { border-color: #6366f1; }
+    .status-msg-input::placeholder { color: var(--vscode-input-placeholderForeground); }
+
+    .commit-toast {
+      display: none; padding: 6px 10px; margin-bottom: 4px;
+      background: #10b98115; border: 1px solid #10b98130;
+      border-radius: 5px; font-size: 10px; color: #34d399;
+    }
+    .commit-toast.show { display: block; }
 
     .disconnect-btn {
       width: 100%; padding: 6px; background: none;
@@ -314,6 +343,10 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
       </div>
       <button class="copy-btn" id="btn-copy" title="코드 복사">📋</button>
     </div>
+    <div class="commit-toast" id="commitToast"></div>
+    <div class="status-msg-wrap">
+      <input class="status-msg-input" id="input-statusMsg" placeholder="상태 메시지... (예: 점심 중 🍜)" maxlength="50">
+    </div>
     <div class="section-label" id="onlineLabel">Online — 0</div>
     <div id="memberList"></div>
     <button class="disconnect-btn" id="btn-disconnect">연결 끊기</button>
@@ -323,6 +356,8 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
     const vscode = acquireVsCodeApi();
     let currentRoomCode = '';
     let isLoggedIn = false;
+    let myFile = '';
+    let statusMsgTimeout = null;
 
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -417,6 +452,18 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
         case 'membersUpdate':
           renderMembers(msg.members);
           break;
+        case 'myFileUpdate':
+          myFile = msg.file || '';
+          break;
+        case 'memberCommitted': {
+          const toast = document.getElementById('commitToast');
+          if (toast) {
+            toast.textContent = \`📦 \${msg.name}: \${msg.message || '새 커밋'}\`;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 5000);
+          }
+          break;
+        }
         case 'error':
           if (msg.code === 'TOKEN_EXPIRED' || msg.code === 'AUTH_REQUIRED') {
             isLoggedIn = false;
@@ -453,6 +500,7 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
       const hasGit = m.modifiedFiles && m.modifiedFiles.length > 0;
       const isOpen = openDetails.has(m.id);
       const avatarUrl = \`https://avatars.githubusercontent.com/\${encodeURIComponent(m.name)}?s=52\`;
+      const isConflict = myFile && m.file && myFile === m.file;
 
       const detailHtml = \`<div class="member-detail \${isOpen ? 'open' : ''}" id="detail-\${m.id}">
         <div class="member-detail-title">수정 중인 파일</div>
@@ -460,6 +508,7 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
           ? m.modifiedFiles.map(f => \`<div class="member-detail-file">\${f.split('/').pop()}</div>\`).join('')
           : '<div class="member-detail-empty">변경 없음</div>'
         }
+        <button class="review-btn" data-name="\${m.name}" data-file="\${m.file || ''}">🔍 코드 리뷰 요청</button>
       </div>\`;
 
       return \`<div class="member-card" data-id="\${m.id}">
@@ -468,8 +517,13 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
           <div class="avatar-badge badge-\${m.status}"></div>
         </div>
         <div class="member-info">
-          <div class="member-name">\${m.name}</div>
+          <div class="member-name" style="display:flex;align-items:center">
+            \${m.name}
+            \${m.branch ? \`<span class="member-branch">\${m.branch}</span>\` : ''}
+            \${isConflict ? \`<span class="conflict-badge" title="같은 파일 작업 중!">⚠️</span>\` : ''}
+          </div>
           <div class="member-file">\${fileLabel}</div>
+          \${m.statusMsg ? \`<div class="member-status-msg">\${m.statusMsg}</div>\` : ''}
           \${hasGit ? \`<div class="member-git">✏ \${m.modifiedFiles.length}개 수정 중</div>\` : ''}
         </div>
         <span class="card-arrow">\${isOpen ? '▾' : '▸'}</span>
@@ -494,6 +548,12 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
           }
         });
       });
+      document.querySelectorAll('.review-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          vscode.postMessage({ type: 'reviewRequest', to: btn.dataset.name, file: btn.dataset.file });
+        });
+      });
     }
 
     // 버튼 이벤트 바인딩
@@ -509,6 +569,12 @@ export function getSidebarHtml(webview: vscode.Webview, extensionUri: vscode.Uri
     document.getElementById('btn-copy').addEventListener('click', copyCode);
     document.getElementById('input-code').addEventListener('input', function() {
       this.value = this.value.toUpperCase();
+    });
+    document.getElementById('input-statusMsg').addEventListener('input', function() {
+      clearTimeout(statusMsgTimeout);
+      statusMsgTimeout = setTimeout(() => {
+        vscode.postMessage({ type: 'statusMsgChange', statusMsg: this.value.trim() });
+      }, 500);
     });
 
     // 웹뷰 로드 완료 → 확장에 ready 전송

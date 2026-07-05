@@ -833,6 +833,25 @@ wss.on('connection', (ws, req) => {
         if (e) { e.member.modifiedFiles = msg.files ?? []; broadcastRoom(roomCode, { type: 'memberUpdated', member: e.member }); }
         break;
       }
+      case 'branchChange': {
+        const e = session.get(clientId);
+        if (e) { e.member.branch = msg.branch ?? null; broadcastRoom(roomCode, { type: 'memberUpdated', member: e.member }); }
+        break;
+      }
+      case 'statusMsgChange': {
+        const e = session.get(clientId);
+        if (e) { e.member.statusMsg = (msg.statusMsg ?? '').slice(0, 50); broadcastRoom(roomCode, { type: 'memberUpdated', member: e.member }); }
+        break;
+      }
+      case 'commitPushed': {
+        broadcastRoom(roomCode, { type: 'memberCommitted', name: githubLogin, message: msg.message ?? '' }, clientId);
+        break;
+      }
+      case 'reviewRequest': {
+        const target = [...session.values()].find(c => c.member.name === msg.to);
+        if (target) send(target.ws, { type: 'reviewRequested', from: githubLogin, file: msg.file });
+        break;
+      }
       case 'ping': break; // keepalive, no-op
       case 'notify': {
         const target = [...session.values()].find(c => c.member.name === msg.to);
@@ -857,7 +876,7 @@ wss.on('connection', (ws, req) => {
 });
 
 function joinRoom(ws, clientId, code, name) {
-  const member = { id: clientId, name, status: 'online', file: null };
+  const member = { id: clientId, name, status: 'online', file: null, branch: null, statusMsg: '' };
   sessions[code].set(clientId, { ws, member });
   send(ws, { type: 'members', members: getRoomMembers(code) });
   broadcastRoom(code, { type: 'memberJoined', member }, clientId);

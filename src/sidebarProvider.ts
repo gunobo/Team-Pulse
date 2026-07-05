@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as ws_module from 'ws';
 import * as cp from 'child_process';
+import * as fs from 'fs';
 import { getSidebarHtml } from './webview/sidebarHtml';
 
 const WS = ws_module.default ?? ws_module.WebSocket ?? (ws_module as any);
@@ -10,6 +11,8 @@ export interface TeamMember {
   name: string;
   file: string | null;
   status: 'online' | 'away' | 'offline';
+  branch?: string | null;
+  statusMsg?: string;
 }
 
 export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
@@ -19,6 +22,7 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
   private myId?: string;
   private reconnectTimer?: NodeJS.Timeout;
   private pingTimer?: NodeJS.Timeout;
+  private commitWatcher?: fs.FSWatcher;
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -62,6 +66,8 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
           vscode.window.showInformationMessage(`Team Pulse: 코드 복사됨 — ${message.code}`);
           break;
         case 'notify': this.sendToServer(message); break;
+        case 'statusMsgChange': this.sendToServer(message); break;
+        case 'reviewRequest':   this.sendToServer(message); break;
       }
     });
   }
@@ -213,7 +219,7 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
       this.pingTimer = setInterval(() => {
         this.sendToServer({ type: 'ping' });
       }, 30000);
-      // 접속 직후 현재 파일 + git 상태 브로드캐스트
+      // 접속 직후 현재 파일 + git 상태 + 브랜치 브로드캐스트
       const editor = vscode.window.activeTextEditor;
       if (editor) {
         const fullPath = editor.document.uri.fsPath;
@@ -224,6 +230,9 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
         setTimeout(() => this.broadcastFileOpen(relativePath), 1000);
       }
       setTimeout(() => this.broadcastGitStatus(), 1500);
+      setTimeout(() => this.broadcastBranch(), 2000);
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (workspaceRoot) this.watchCommitFile(workspaceRoot);
     });
 
     this.ws.on('message', (raw: ws_module.RawData) => {
@@ -301,6 +310,18 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
         vscode.window.showInformationMessage(`💬 ${msg.from}: ${msg.message}`);
         break;
 
+      case 'reviewRequested':
+        vscode.window.showInformationMessage(
+          `🔍 ${msg.from}이(가) 코드 리뷰를 요청했어요${msg.file ? `: ${msg.file}` : ''}`,
+          '확인'
+        );
+        break;
+
+      case 'memberCommitted':
+        vscode.window.showInformationMessage(`📦 ${msg.name}: ${msg.message || '새 커밋'}`);
+        this.postToWebview({ type: 'memberCommitted', name: msg.name, message: msg.message });
+        break;
+
       case 'error':
         vscode.window.showErrorMessage(`Team Pulse: ${msg.message}`);
         if (msg.code === 'TOKEN_EXPIRED') {
@@ -328,6 +349,8 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
   disconnect() {
     clearTimeout(this.reconnectTimer);
     clearInterval(this.pingTimer);
+    this.commitWatcher?.close();
+    this.commitWatcher = undefined;
     this.ws?.close();
     this.ws      = undefined;
     this.myId    = undefined;
@@ -341,6 +364,34 @@ export class TeamPulseSidebarProvider implements vscode.WebviewViewProvider {
 
   broadcastFileOpen(filePath: string) {
     this.sendToServer({ type: 'fileOpen', file: filePath });
+    this.postToWebview({ type: 'myFileUpdate', file: filePath });
+  }
+
+  broadcastBranch() {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) return;
+    cp.exec('git branch --show-current', { cwd: workspaceRoot }, (err, stdout) => {
+      if (err) return;
+      const branch = stdout.trim();
+      if (branch) this.sendToServer({ type: 'branchChange', branch });
+    });
+  }
+
+  private watchCommitFile(workspaceRoot: string) {
+    this.commitWatcher?.close();
+    const commitMsgPath = `${workspaceRoot}/.git/COMMIT_EDITMSG`;
+    if (!fs.existsSync(commitMsgPath)) return;
+    let lastContent = fs.readFileSync(commitMsgPath, 'utf-8');
+    this.commitWatcher = fs.watch(commitMsgPath, () => {
+      try {
+        const content = fs.readFileSync(commitMsgPath, 'utf-8');
+        if (content !== lastContent && content.trim()) {
+          lastContent = content;
+          const message = content.split('\n')[0].trim();
+          this.sendToServer({ type: 'commitPushed', message });
+        }
+      } catch {}
+    });
   }
 
   broadcastGitStatus() {
